@@ -11,115 +11,106 @@ use MediaWiki\Parser\PPFrame;
 
 /**
  * Parser function for level-based field permissions:
- *   {{#field: level | content }}
  *
- * Behavior:
- *   - Extracts permission level + content via helper
- *   - Tracks property access expectations (if SMW installed)
- *   - Performs permission check (fail-closed)
- *   - Returns content only if allowed
+ *     {{#field: level | content }}
+ *
+ * RAW RULE:
+ *   - Extract metadata (SMW properties) from raw wikitext
+ *   - But final output must be parsed normally
  */
 class FieldFunction {
 
-	/** @var PermissionChecker */
-	private PermissionChecker $permissionChecker;
+    private PermissionChecker $permissionChecker;
 
-	public function __construct( PermissionChecker $permissionChecker ) {
-		$this->permissionChecker = $permissionChecker;
-	}
+    public function __construct( PermissionChecker $permissionChecker ) {
+        $this->permissionChecker = $permissionChecker;
+    }
 
-	/**
-	 * Execute the #field parser function.
-	 *
-	 * @param Parser $parser
-	 * @param PPFrame $frame
-	 * @param array $args
-	 * @return string
-	 */
-	public function execute(
-		Parser $parser,
-		PPFrame $frame,
-		array $args
-	): string {
+    public function execute(
+        Parser $parser,
+        PPFrame $frame,
+        array $args
+    ) {
 
-		wfDebugLog( 'fieldpermissions', 'FieldFunction::execute: Processing #field parser function' );
+        wfDebugLog( 'fieldpermissions', 'FieldFunction::execute: #field invoked' );
 
-		/* -----------------------------------------------------------
-		 * 1. Configure parser output state (cache disable, flags)
-		 * ----------------------------------------------------------- */
-		$output = $parser->getOutput();
-		FieldPermissionsParserHelper::setupParserOutput( $output );
+        /** 1. Prepare parser output */
+        $output = $parser->getOutput();
+        FieldPermissionsParserHelper::setupParserOutput( $output );
 
-		/* -----------------------------------------------------------
-		 * 2. Parse arguments (fail-closed)
-		 * ----------------------------------------------------------- */
-		$resolved = FieldPermissionsParserHelper::resolveContentArguments(
+        /** ----------------------------------------------------------
+         * 2. Parse args (raw content preserved)
+         *
+         * IMPORTANT:
+         *   resolveContentArgumentsRaw() takes:
+         *      - PPFrame
+         *      - array $args
+         *
+         * (Your previous version incorrectly passed Parser + Frame)
+         * ---------------------------------------------------------- */
+        $resolved = FieldPermissionsParserHelper::resolveContentArgumentsRaw(
 			$frame,
 			$args
-		);
+		);		
 
-		if ( $resolved === null ) {
-			// Invalid arguments → hide field
-			wfDebugLog( 'fieldpermissions', 'FieldFunction::execute: Invalid arguments → DENY' );
-			return '';
-		}
+        if ( $resolved === null ) {
+            return '';
+        }
 
-		[ $requiredLevel, $content ] = $resolved;
+        [ $requiredLevel, $rawContent ] = $resolved;
 
-		/* -----------------------------------------------------------
-		 * 3. Determine current user
-		 * ----------------------------------------------------------- */
-		$user = FieldPermissionsParserHelper::getUser( $parser );
+        /** 3. Current user */
+        $user = FieldPermissionsParserHelper::getUser( $parser );
 
-		/* -----------------------------------------------------------
-		 * 4. Extract SMW properties used inside the content
-		 *    (only if SMW installed — extractor handles fallback)
-		 * ----------------------------------------------------------- */
-		$properties = SMWPropertyExtractor::extractProperties( $content );
+        /** 4. Extract SMW properties (unparsed wikitext) */
+        $properties = SMWPropertyExtractor::extractProperties( $rawContent );
 
-		if ( $properties ) {
-			$protected = $output->getExtensionData(
-				'fieldPermissionsProtectedProperties'
-			) ?? [];
+        if ( $properties ) {
+            $protected = $output->getExtensionData(
+                'fieldPermissionsProtectedProperties'
+            ) ?? [];
 
-			foreach ( $properties as $property ) {
+            foreach ( $properties as $property ) {
+                $protected[$property] ??= [];
 
-				// Track per-page mapping
-				$protected[$property] ??= [];
+                if ( !in_array( $requiredLevel, $protected[$property], true ) ) {
+                    $protected[$property][] = $requiredLevel;
+                }
 
-				if ( !in_array( $requiredLevel, $protected[$property], true ) ) {
-					$protected[$property][] = $requiredLevel;
-				}
+                PropertyPermissionRegistry::registerProperty(
+                    $property,
+                    $requiredLevel
+                );
+            }
 
-				// Register in the global static registry
-				PropertyPermissionRegistry::registerProperty(
-					$property,
-					$requiredLevel
-				);
-			}
+            $output->setExtensionData(
+                'fieldPermissionsProtectedProperties',
+                $protected
+            );
+        }
 
-			// Store the updated structure back into ParserOutput
-			$output->setExtensionData(
-				'fieldPermissionsProtectedProperties',
-				$protected
-			);
-		}
+        /** 5. Permission check */
+        if ( !$this->permissionChecker->hasLevelAccess( $user, $requiredLevel ) ) {
+            return '';
+        }
 
-		/* -----------------------------------------------------------
-		 * 5. Permission check
-		 * ----------------------------------------------------------- */
-		if ( $this->permissionChecker->hasLevelAccess(
-			$user,
-			$requiredLevel
-		) ) {
-			wfDebugLog( 'fieldpermissions', 'FieldFunction::execute: User ' . $user->getName() . ' granted access to level "' . $requiredLevel . '" → showing content' );
-			return $content;
-		}
+        /** ------------------------------------------------------
+         * 6. ALLOW:
+         *     Fully parse the wikitext in the current frame context
+         *     so template parameters and parser functions behave
+         *     exactly as they would in normal page content.
+         *
+         *     Use insertStripItem() to wrap the HTML in a marker
+         *     so MediaWiki treats it as already-parsed HTML and
+         *     doesn't escape it when inserting it into the output.
+         * ------------------------------------------------------ */
+        $html = $parser->recursiveTagParse( $rawContent, $frame );
+        return $parser->insertStripItem( $html );
+    }
 
-		/* -----------------------------------------------------------
-		 * 6. Fail-closed: hide content for unauthorized users
-		 * ----------------------------------------------------------- */
-		wfDebugLog( 'fieldpermissions', 'FieldFunction::execute: User ' . $user->getName() . ' denied access to level "' . $requiredLevel . '" → hiding content' );
-		return '';
-	}
+    public static function factory( Parser $parser, PPFrame $frame, array $args ) {
+        $services = \MediaWiki\MediaWikiServices::getInstance();
+        $checker = $services->get( \FieldPermissions\Permissions\PermissionChecker::SERVICE_NAME );
+        return (new self( $checker ))->execute( $parser, $frame, $args );
+    }
 }

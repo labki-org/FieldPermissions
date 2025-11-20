@@ -140,6 +140,10 @@ docker compose exec -T mediawiki bash -lc "
     echo '\$wgFieldPermissionsGroupMaxLevel = [\"*\"=>\"public\", \"user\"=>\"public\", \"lab_member\"=>\"internal\", \"pi\"=>\"sensitive\"];'
     echo '\$wgFieldPermissionsGroupSets = [\"all_admins\"=>[\"sysop\",\"pi\"]];'
     echo '\$wgDebugLogGroups[\"fieldpermissions\"] = \"$CONTAINER_LOG_FILE\";'
+    echo ''
+    echo '// Define custom user groups for FieldPermissions'
+    echo '\$wgGroupPermissions[\"lab_member\"] = \$wgGroupPermissions[\"user\"];'
+    echo '\$wgGroupPermissions[\"pi\"] = \$wgGroupPermissions[\"user\"];'
   } >> $CONTAINER_WIKI/LocalSettings.php
 "
 
@@ -169,6 +173,21 @@ echo \"OK\n\";
 
 docker compose exec -T mediawiki tail -n 5 "$CONTAINER_LOG_FILE"
 
+# ---------------- POPULATE TEST DATA (OPTIONAL) ----------------
+
+if [ "${POPULATE_TEST_DATA:-}" = "1" ]; then
+    echo ""
+    echo "==> Populating test data..."
+    "$SCRIPT_DIR/populate_test_data.sh" || echo "  Warning: Failed to populate test data (this is optional)"
+fi
+
 echo "DONE"
 echo "Visit: http://localhost:$MW_PORT/w"
 echo "Logs at: $LOG_DIR"
+if [ "${POPULATE_TEST_DATA:-}" != "1" ]; then
+    echo ""
+    echo "To populate test data, run:"
+    echo "  POPULATE_TEST_DATA=1 $SCRIPT_DIR/setup_mw_test_env.sh"
+    echo "  or"
+    echo "  $SCRIPT_DIR/populate_test_data.sh"
+fi

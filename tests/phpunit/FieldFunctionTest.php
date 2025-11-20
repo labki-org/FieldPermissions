@@ -5,7 +5,6 @@ namespace FieldPermissions\Tests;
 use FieldPermissions\ParserFunctions\FieldFunction;
 use FieldPermissions\ParserFunctions\FieldPermissionsParserHelper;
 use FieldPermissions\Permissions\PermissionChecker;
-use FieldPermissions\Utils\SMWPropertyExtractor;
 use MediaWiki\Parser\Parser;
 use MediaWiki\Parser\ParserOutput;
 use MediaWiki\Parser\PPFrame;
@@ -25,19 +24,25 @@ class FieldFunctionTest extends TestCase {
 			->onlyMethods([ 'updateCacheExpiry', 'setExtensionData', 'getExtensionData' ])
 			->getMock();
 
-		$parserOutput->method('updateCacheExpiry')->willReturn(null);
-		$parserOutput->method('setExtensionData')->willReturn(null);
+		$parserOutput->expects($this->any())
+			->method('updateCacheExpiry')
+			->willReturnCallback(function(): void {});
+		$parserOutput->expects($this->any())
+			->method('setExtensionData')
+			->willReturnCallback(function(): void {});
 		$parserOutput->method('getExtensionData')->willReturn(null);
 
 		$user = $this->getMockBuilder(\MediaWiki\User\User::class)
 			->disableOriginalConstructor()
-			->onlyMethods([ 'isAnon' ])
+			->onlyMethods([ 'isAnon', 'getName' ])
 			->getMock();
 		$user->method('isAnon')->willReturn(false);
+		$user->method('getName')->willReturn('TestUser');
 
 		$parser = $this->getMockBuilder(Parser::class)
 			->disableOriginalConstructor()
-			->onlyMethods([ 'getOutput', 'getUser', 'getPreprocessor' ])
+			->onlyMethods([ 'getOutput', 'getPreprocessor' ])
+			->addMethods([ 'getUser' ])
 			->getMock();
 
 		$parser->method('getOutput')->willReturn($parserOutput);
@@ -46,11 +51,18 @@ class FieldFunctionTest extends TestCase {
 		// Preprocessor needs only ->newFrame()
 		$preprocessor = $this->getMockBuilder(\MediaWiki\Parser\Preprocessor::class)
 			->disableOriginalConstructor()
-			->onlyMethods([ 'newFrame' ])
+			->onlyMethods([ 'newFrame', 'newCustomFrame', 'newPartNodeArray', 'preprocessToObj' ])
 			->getMock();
 
 		$preprocessor->method('newFrame')->willReturn(
-			$this->createMock(PPFrame::class)
+			$this->getMockForAbstractClass(PPFrame::class)
+		);
+		$preprocessor->method('newCustomFrame')->willReturn(
+			$this->getMockForAbstractClass(PPFrame::class)
+		);
+		$preprocessor->method('newPartNodeArray')->willReturn([]);
+		$preprocessor->method('preprocessToObj')->willReturn(
+			$this->createMock(\MediaWiki\Parser\PPNode::class)
 		);
 
 		$parser->method('getPreprocessor')->willReturn($preprocessor);
@@ -62,10 +74,7 @@ class FieldFunctionTest extends TestCase {
 	 * Create a mock PPFrame expanding arg1 then arg2.
 	 */
 	private function createFrame(string $level, string $content): PPFrame {
-		$frame = $this->getMockBuilder(PPFrame::class)
-			->disableOriginalConstructor()
-			->onlyMethods([ 'expand' ])
-			->getMock();
+		$frame = $this->getMockForAbstractClass(PPFrame::class);
 
 		$call = 0;
 		$frame->method('expand')->willReturnCallback(
@@ -105,9 +114,6 @@ class FieldFunctionTest extends TestCase {
 
 		$checker->method('hasLevelAccess')->willReturn(true);
 
-		// Prevent real SMW extraction from running
-		SMWPropertyExtractor::shouldReceive('extractProperties')->andReturn([]);
-
 		$fn = new FieldFunction($checker);
 		$result = $fn->execute($parser, $frame, $args);
 
@@ -125,8 +131,6 @@ class FieldFunctionTest extends TestCase {
 			->getMock();
 		$checker->method('hasLevelAccess')->willReturn(false);
 
-		SMWPropertyExtractor::shouldReceive('extractProperties')->andReturn([]);
-
 		$fn = new FieldFunction($checker);
 		$result = $fn->execute($parser, $frame, $args);
 
@@ -136,10 +140,7 @@ class FieldFunctionTest extends TestCase {
 	public function testReturnsEmptyWhenArgumentsMissing(): void {
 		$parser = $this->createMockParser();
 
-		$frame = $this->getMockBuilder(PPFrame::class)
-			->disableOriginalConstructor()
-			->onlyMethods([ 'expand' ])
-			->getMock();
+		$frame = $this->getMockForAbstractClass(PPFrame::class);
 		$frame->method('expand')->willReturn('');
 
 		$checker = $this->getMockBuilder(PermissionChecker::class)
@@ -187,8 +188,6 @@ class FieldFunctionTest extends TestCase {
 			->onlyMethods([ 'hasLevelAccess' ])
 			->getMock();
 		$checker->method('hasLevelAccess')->willReturn(true);
-
-		SMWPropertyExtractor::shouldReceive('extractProperties')->andReturn([]);
 
 		$fn = new FieldFunction($checker);
 

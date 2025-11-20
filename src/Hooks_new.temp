@@ -28,7 +28,6 @@ use MediaWiki\Context\RequestContext;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Output\OutputPage;
 use MediaWiki\Parser\Parser;
-use MediaWiki\Parser\PPFrame;
 use MediaWiki\Parser\ParserOutput;
 use MediaWiki\User\UserGroupManager;
 use MediaWiki\User\UserIdentity;
@@ -55,15 +54,25 @@ class Hooks {
 		$services          = MediaWikiServices::getInstance();
 		$permissionChecker = $services->get( PermissionChecker::SERVICE_NAME );
 
+		// #field
 		$parser->setFunctionHook(
 			'field',
-			[ FieldFunction::class, 'factory' ],
+			static function ( Parser $parser, ...$args ) use ( $permissionChecker ) {
+				$fn    = new FieldFunction( $permissionChecker );
+				$frame = $parser->getPreprocessor()->newFrame();
+				return $fn->execute( $parser, $frame, $args );
+			},
 			Parser::SFH_OBJECT_ARGS
 		);
-		
+
+		// #field-groups
 		$parser->setFunctionHook(
 			'field-groups',
-			[ FieldGroupsFunction::class, 'factory' ],
+			static function ( Parser $parser, ...$args ) use ( $permissionChecker ) {
+				$fn    = new FieldGroupsFunction( $permissionChecker );
+				$frame = $parser->getPreprocessor()->newFrame();
+				return $fn->execute( $parser, $frame, $args );
+			},
 			Parser::SFH_OBJECT_ARGS
 		);
 	}

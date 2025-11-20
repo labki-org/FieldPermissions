@@ -8,95 +8,91 @@ use FieldPermissions\Utils\StringUtils;
 use MediaWiki\Parser\Parser;
 use MediaWiki\Parser\PPFrame;
 
-/**
- * Parser function for group-based field permissions:
- *
- *   {{#field-groups: group1, group2 | content }}
- *
- * Behavior:
- *   - Groups must match user’s effective groups OR group-set names
- *   - Content only shows if user belongs to >=1 allowed group
- *   - Fail-closed on missing args or malformed group directives
- */
 class FieldGroupsFunction {
 
-	private PermissionChecker $permissionChecker;
+    private PermissionChecker $permissionChecker;
 
-	public function __construct( PermissionChecker $permissionChecker ) {
-		$this->permissionChecker = $permissionChecker;
-	}
+    public function __construct( PermissionChecker $permissionChecker ) {
+        $this->permissionChecker = $permissionChecker;
+    }
 
-	/**
-	 * Execute the #field-groups parser function.
-	 *
-	 * @param Parser $parser
-	 * @param PPFrame $frame
-	 * @param array $args
-	 * @return string
-	 */
-	public function execute(
-		Parser $parser,
-		PPFrame $frame,
-		array $args
-	): string {
+    public function execute(
+        Parser $parser,
+        PPFrame $frame,
+        array $args
+    ): string {
 
-		wfDebugLog( 'fieldpermissions', 'FieldGroupsFunction::execute: Processing #field-groups parser function' );
+        wfDebugLog( 'fieldpermissions', 'FieldGroupsFunction::execute invoked' );
 
-		/* -----------------------------------------------------------
-		 * 1. Configure parser output (cache disable)
-		 * ----------------------------------------------------------- */
-		$output = $parser->getOutput();
-		FieldPermissionsParserHelper::setupParserOutput( $output );
+        /* -------------------------------------------------------------
+         * 1. Setup parser output (disable caching)
+         * ------------------------------------------------------------- */
+        $output = $parser->getOutput();
+        FieldPermissionsParserHelper::setupParserOutput( $output );
 
-		/* -----------------------------------------------------------
-		 * 2. Resolve arguments
-		 * ----------------------------------------------------------- */
-		$resolved = FieldPermissionsParserHelper::resolveContentArguments(
-			$frame,
-			$args
-		);
+        /* -------------------------------------------------------------
+         * 2. Extract arguments (RAW content + expanded control)
+         * ------------------------------------------------------------- */
+        $resolved = FieldPermissionsParserHelper::resolveContentArgumentsRaw(
+            $frame,
+            $args
+        );
 
-		if ( $resolved === null ) {
-			// Missing args or empty args
-			wfDebugLog( 'fieldpermissions', 'FieldGroupsFunction::execute: Invalid arguments → DENY' );
-			return '';
-		}
+        if ( $resolved === null ) {
+            wfDebugLog( 'fieldpermissions', 'FieldGroupsFunction: invalid args → DENY' );
+            return '';
+        }
 
-		[ $groupsStr, $content ] = $resolved;
+        [ $groupsStr, $rawContent ] = $resolved;
 
-		/* -----------------------------------------------------------
-		 * 3. Parse the comma-separated group list
-		 * ----------------------------------------------------------- */
-		$requiredGroups = StringUtils::splitCommaSeparated( $groupsStr );
+        /* -------------------------------------------------------------
+         * 3. Parse required groups
+         * ------------------------------------------------------------- */
+        $requiredGroups = StringUtils::splitCommaSeparated( $groupsStr );
 
-		// Remove empty entries (e.g., trailing commas)
-		$requiredGroups = array_values(
-			array_filter( $requiredGroups, static fn ( $x ) => $x !== '' )
-		);
+        $requiredGroups = array_values( array_filter(
+            $requiredGroups,
+            static fn ( $x ) => trim( $x ) !== ''
+        ) );
 
-		if ( !$requiredGroups ) {
-			// No valid groups → fail closed
-			wfDebugLog( 'fieldpermissions', 'FieldGroupsFunction::execute: No valid groups specified → DENY' );
-			return '';
-		}
+        if ( !$requiredGroups ) {
+            wfDebugLog( 'fieldpermissions', 'FieldGroupsFunction: no valid groups → DENY' );
+            return '';
+        }
 
-		/* -----------------------------------------------------------
-		 * 4. Get current user
-		 * ----------------------------------------------------------- */
-		$user = FieldPermissionsParserHelper::getUser( $parser );
+        /* -------------------------------------------------------------
+         * 4. Current user
+         * ------------------------------------------------------------- */
+        $user = FieldPermissionsParserHelper::getUser( $parser );
 
-		/* -----------------------------------------------------------
-		 * 5. Permission check
-		 * ----------------------------------------------------------- */
-		if ( $this->permissionChecker->hasGroupAccess( $user, $requiredGroups ) ) {
-			wfDebugLog( 'fieldpermissions', 'FieldGroupsFunction::execute: User ' . $user->getName() . ' granted access to groups "' . implode( ',', $requiredGroups ) . '" → showing content' );
-			return $content;
-		}
+        /* -------------------------------------------------------------
+         * 5. Access check
+         * ------------------------------------------------------------- */
+        if ( !$this->permissionChecker->hasGroupAccess( $user, $requiredGroups ) ) {
+            wfDebugLog(
+                'fieldpermissions',
+                'FieldGroupsFunction: DENY user ' . $user->getName() .
+                ' required groups: ' . implode( ',', $requiredGroups )
+            );
+            return '';
+        }
 
-		/* -----------------------------------------------------------
-		 * 6. Fail closed → hide content
-		 * ----------------------------------------------------------- */
-		wfDebugLog( 'fieldpermissions', 'FieldGroupsFunction::execute: User ' . $user->getName() . ' denied access to groups "' . implode( ',', $requiredGroups ) . '" → hiding content' );
-		return '';
-	}
+        /* -------------------------------------------------------------
+         * 6. ALLOW — parse wikitext normally in the current frame and
+         *    wrap it in a strip marker so the HTML isn't escaped.
+         * ------------------------------------------------------------- */
+        wfDebugLog(
+            'fieldpermissions',
+            'FieldGroupsFunction: ALLOW for user ' . $user->getName()
+        );
+
+        $html = $parser->recursiveTagParse( $rawContent, $frame );
+        return $parser->insertStripItem( $html );
+    }
+
+    public static function factory( Parser $parser, PPFrame $frame, array $args ) {
+        $services = \MediaWiki\MediaWikiServices::getInstance();
+        $checker = $services->get( \FieldPermissions\Permissions\PermissionChecker::SERVICE_NAME );
+        return ( new self( $checker ) )->execute( $parser, $frame, $args );
+    }
 }

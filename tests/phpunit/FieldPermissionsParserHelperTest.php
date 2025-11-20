@@ -15,7 +15,7 @@ use PHPUnit\Framework\TestCase;
 class FieldPermissionsParserHelperTest extends TestCase {
 
 	private function makeFrame(string $arg1, string $arg2): PPFrame {
-		$frame = $this->createMock(PPFrame::class);
+		$frame = $this->getMockForAbstractClass(PPFrame::class);
 		$call = 0;
 
 		$frame->method('expand')
@@ -29,16 +29,26 @@ class FieldPermissionsParserHelperTest extends TestCase {
 
 	private function makeParser(User $user = null): Parser {
 		$parserOutput = $this->createMock(ParserOutput::class);
-		$parserOutput->method('updateCacheExpiry')->willReturn(null);
-		$parserOutput->method('setExtensionData')->willReturn(null);
-		$parserOutput->method('getExtensionData')->willReturn(null);
+		$parserOutput->expects($this->any())
+			->method('updateCacheExpiry')
+			->willReturnCallback(function(): void {});
+		$parserOutput->expects($this->any())
+			->method('setExtensionData')
+			->willReturnCallback(function(): void {});
+		$parserOutput->expects($this->any())
+			->method('getExtensionData')
+			->willReturn(null);
 
 		if (!$user) {
 			$user = $this->createMock(User::class);
 			$user->method('isAnon')->willReturn(false);
 		}
 
-		$parser = $this->createMock(Parser::class);
+		$parser = $this->getMockBuilder(Parser::class)
+			->disableOriginalConstructor()
+			->addMethods([ 'getUser' ])
+			->onlyMethods([ 'getOutput' ])
+			->getMock();
 		$parser->method('getOutput')->willReturn($parserOutput);
 		$parser->method('getUser')->willReturn($user);
 

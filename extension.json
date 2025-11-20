@@ -15,12 +15,13 @@
     "MessagesDirs": {
         "FieldPermissions": ["i18n"]
     },
-
-    "MagicWords": {
-        "field": "field",
-        "field-groups": "field-groups"
-    },
-
+	"ExtensionMessagesFiles": {
+		"FieldPermissionsMagic": "i18n/FieldPermissions.i18n.magic.php"
+	},
+	"SMW::Parser::FunctionHandlers": {
+		"field": "FieldPermissions\\ParserFunctions\\FieldFunction",
+		"field-groups": "FieldPermissions\\ParserFunctions\\FieldGroupsFunction"
+	},
     "AutoloadNamespaces": {
         "FieldPermissions\\": "src/"
     },

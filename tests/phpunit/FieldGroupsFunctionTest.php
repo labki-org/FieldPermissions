@@ -52,24 +52,37 @@ class FieldGroupsFunctionTest extends TestCase {
 			->method('setExtensionData')
 			->with('usesFieldPermissions', true);
 
-		$parserOutput->method('getExtensionData')
+		$parserOutput->expects($this->any())
+			->method('getExtensionData')
 			->willReturn(null);
 
-		$parser = $this->createMock(Parser::class);
+		$parser = $this->getMockBuilder(Parser::class)
+			->disableOriginalConstructor()
+			->addMethods([ 'getUser' ])
+			->onlyMethods([ 'getOutput', 'getPreprocessor' ])
+			->getMock();
 		$parser->method('getOutput')->willReturn($parserOutput);
 
 		if (!$user) {
 			$user = $this->createMock(User::class);
 			$user->method('isAnon')->willReturn(false);
+			$user->method('getName')->willReturn('TestUser');
 		}
 		$parser->method('getUser')->willReturn($user);
 
 		// Preprocessor mock to provide ->newFrame()
 		$preproc = $this->getMockBuilder(\MediaWiki\Parser\Preprocessor::class)
 			->disableOriginalConstructor()
-			->onlyMethods(['newFrame'])
+			->onlyMethods([ 'newFrame', 'newCustomFrame', 'newPartNodeArray', 'preprocessToObj' ])
 			->getMock();
 		$preproc->method('newFrame')->willReturn($frame);
+		$preproc->method('newCustomFrame')->willReturn(
+			$this->getMockForAbstractClass(PPFrame::class)
+		);
+		$preproc->method('newPartNodeArray')->willReturn([]);
+		$preproc->method('preprocessToObj')->willReturn(
+			$this->createMock(\MediaWiki\Parser\PPNode::class)
+		);
 
 		$parser->method('getPreprocessor')->willReturn($preproc);
 
@@ -80,7 +93,7 @@ class FieldGroupsFunctionTest extends TestCase {
 	 * Helper: PPFrame that expands arg1 then arg2
 	 * ---------------------------------------------------------------------- */
 	private function makeFrame(string $arg1, string $arg2): PPFrame {
-		$frame = $this->createMock(PPFrame::class);
+		$frame = $this->getMockForAbstractClass(PPFrame::class);
 		$call = 0;
 
 		$frame->method('expand')

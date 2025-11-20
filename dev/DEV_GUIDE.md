@@ -44,8 +44,7 @@ docker compose exec -T mediawiki php tests/phpunit/phpunit.php \
 Or run the full extension suite:
 
 ```bash
-docker compose exec -T mediawiki php tests/phpunit/phpunit.php \
-  --testsuite extensions
+docker compose exec mediawiki bash -lc 'composer phpunit:entrypoint -- extensions/FieldPermissions/tests/phpunit'
 ```
 
 Tests live in:

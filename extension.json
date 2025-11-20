@@ -1,0 +1,55 @@
+{
+    "name": "FieldPermissions",
+    "version": "1.0.0",
+    "author": "Daniel Aharoni",
+    "url": "https://www.mediawiki.org/wiki/Extension:FieldPermissions",
+    "descriptionmsg": "fieldpermissions-desc",
+    "license-name": "GPL-2.0-or-later",
+    "type": "extension",
+    "manifest_version": 2,
+
+    "requires": {
+        "MediaWiki": ">=1.39"
+    },
+
+    "MessagesDirs": {
+        "FieldPermissions": ["i18n"]
+    },
+
+    "MagicWords": {
+        "field": "field",
+        "field-groups": "field-groups"
+    },
+
+    "AutoloadNamespaces": {
+        "FieldPermissions\\": "src/"
+    },
+
+    "AutoloadClasses": {
+        "FieldPermissions\\Hooks": "src/Hooks.php"
+    },
+
+    "Hooks": {
+        "ParserFirstCallInit": "FieldPermissions\\Hooks::onParserFirstCallInit",
+        "OutputPageParserOutput": "FieldPermissions\\Hooks::onOutputPageParserOutput",
+        "PageRenderingHash": "FieldPermissions\\Hooks::onPageRenderingHash",
+        "SMWResultArrayBeforePrint": "FieldPermissions\\Hooks::onSMWResultArrayBeforePrint",
+        "SMWResultArrayBeforeProcessing": "FieldPermissions\\Hooks::onSMWResultArrayBeforeProcessing"
+    },
+
+    "ServiceWiringFiles": {
+        "FieldPermissions": "src/Services/ServiceWiring.php"
+    },
+
+    "config": {
+        "FieldPermissionsLevels": {
+            "value": null
+        },
+        "FieldPermissionsGroupMaxLevel": {
+            "value": null
+        },
+        "FieldPermissionsGroupSets": {
+            "value": null
+        }
+    }
+}

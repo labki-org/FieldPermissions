@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: ['**']
+
+concurrency:
+  group: fieldpermissions-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  phpunit:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        mw_branch: [REL1_44]
+        php: ['8.2']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: extension
+
+      - name: Get MediaWiki core
+        run: |
+          git clone https://gerrit.wikimedia.org/r/mediawiki/core.git mediawiki
+          cd mediawiki
+          git checkout ${{ matrix.mw_branch }}
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, intl, xml, json, sqlite3
+          tools: composer
+
+      - name: Install MW deps
+        working-directory: mediawiki
+        run: composer update --no-interaction
+
+      - name: Install MW with SQLite
+        working-directory: mediawiki
+        run: |
+          mkdir -p cache/sqlite
+          php maintenance/install.php \
+            --dbtype sqlite --dbpath $(pwd)/cache/sqlite \
+            --server "http://example.local" --scriptpath "/w" \
+            --lang en --pass StrongDockerPass123! Wiki Admin
+
+      - name: Enable extension
+        run: |
+          mkdir -p mediawiki/extensions
+          ln -s "$(pwd)/extension" "mediawiki/extensions/FieldPermissions"
+          echo "wfLoadExtension( 'FieldPermissions' );" >> mediawiki/LocalSettings.php
+          echo "\$wgFieldPermissionsLevels = ['public'=>0, 'internal'=>10, 'sensitive'=>20];" >> mediawiki/LocalSettings.php
+          echo "\$wgFieldPermissionsGroupMaxLevel = ['*'=>'public', 'user'=>'public', 'lab_member'=>'internal', 'pi'=>'sensitive'];" >> mediawiki/LocalSettings.php
+          echo "\$wgFieldPermissionsGroupSets = ['all_admins'=>['sysop','pi']];" >> mediawiki/LocalSettings.php
+          echo "\$wgCacheDirectory = \"\$IP/cache\";" >> mediawiki/LocalSettings.php
+
+      - name: Update DB schema
+        working-directory: mediawiki
+        run: php maintenance/update.php --quick
+
+      - name: PHPUnit tests
+        working-directory: mediawiki
+        run: |
+          if [ -d "extensions/FieldPermissions/tests/phpunit" ]; then
+            composer phpunit:entrypoint -- extensions/FieldPermissions/tests/phpunit
+          else
+            echo "No tests directory found; skipping."
+          fi
+

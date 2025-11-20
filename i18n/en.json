@@ -1,0 +1,9 @@
+{
+	"@metadata": {
+		"authors": [
+			"Daniel Aharoni"
+		]
+	},
+	"fieldpermissions-desc": "Provides fine-grained field-level access control using permission levels or groups."
+}
+

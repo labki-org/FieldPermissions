@@ -1,0 +1,14 @@
+*~
+*.kate-swp
+.*.swp
+node_modules/**
+vendor/**
+composer.lock
+/.eslintcache
+
+# PHPUnit
+.phpunit.result.cache
+tests/phpunit/.phpunit.result.cache
+
+# Logs
+logs/**

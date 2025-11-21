@@ -81,18 +81,29 @@ class ResultPrinterVisibilityFilter {
     /**
      * Check if a print request (column) is visible to a user.
      *
+     * CRITICAL: Defensive API compatibility for SMW version differences.
+     * 
+     * SMW uses different class names across versions:
+     * - SMW\PrintRequest (older) vs SMW\Query\PrintRequest (newer)
+     * - Some versions have getDataItem() directly, others require getData()->getDataItem()
+     * - getData() returns PropertyValue (DataValue) which wraps the DIProperty
+     * 
+     * This defensive approach handles all variations and prevents fatal errors.
+     * The type checking and method_exists() calls were essential for compatibility.
+     *
      * @param mixed $printRequest
      * @param UserIdentity $user
      * @return bool
      */
     public function isPrintRequestVisible( $printRequest, UserIdentity $user ): bool {
-        // Ensure we have a valid PrintRequest object
+        // CRITICAL: Accept both PrintRequest namespaces (SMW version compatibility)
         if ( !$printRequest instanceof PrintRequest && !$printRequest instanceof \SMW\Query\PrintRequest ) {
              wfDebugLog( 'fieldpermissions', "ResultPrinterVisibilityFilter: Invalid print request type: " . (is_object($printRequest) ? get_class($printRequest) : gettype($printRequest)) );
              return true; // Safe default or false? SMW uses mixed namespaces sometimes.
         }
 
-        // Check if method exists (SMW 6 vs older versions compatibility)
+        // CRITICAL: Defensive method checking - SMW versions differ in API
+        // Try getDataItem() first (direct access), fallback to getData()->getDataItem() (wrapped)
         if ( method_exists( $printRequest, 'getDataItem' ) ) {
             $dataItem = $printRequest->getDataItem();
             wfDebugLog( 'fieldpermissions', "ResultPrinterVisibilityFilter: Got dataItem via getDataItem(): " . ( $dataItem ? get_class($dataItem) : 'null' ) );
@@ -100,7 +111,7 @@ class ResultPrinterVisibilityFilter {
              $data = $printRequest->getData();
              wfDebugLog( 'fieldpermissions', "ResultPrinterVisibilityFilter: Got data via getData(): " . ( $data ? get_class($data) : 'null' ) );
              
-             // getData() returns a DataValue, we need to extract the DataItem
+             // getData() returns a DataValue (PropertyValue), we need to extract the DataItem
              if ( $data && method_exists( $data, 'getDataItem' ) ) {
                  $dataItem = $data->getDataItem();
                  wfDebugLog( 'fieldpermissions', "ResultPrinterVisibilityFilter: Extracted dataItem from DataValue: " . ( $dataItem ? get_class($dataItem) : 'null' ) );

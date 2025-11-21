@@ -7,14 +7,15 @@ use SMW\Query\ResultPrinters\ListResultPrinter;
 class FpListResultPrinter extends ListResultPrinter {
     use PrinterFilterTrait;
     
-    public function __construct( $format, $params = [] ) {
-        if ( !is_array( $params ) ) {
-            $params = [];
-        }
+    /**
+     * CRITICAL: Constructor signature must accept $params = false (not array).
+     * See FpTableResultPrinter.php for detailed explanation.
+     */
+    public function __construct( $format, $params = false ) {
         wfDebugLog(
             'fieldpermissions',
             static::class . "::__construct called (format={$format})"
         );
-        parent::__construct( $format, $params );
+        parent::__construct( $format, (array)$params );
     }
 }

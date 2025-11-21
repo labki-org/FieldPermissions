@@ -19,6 +19,14 @@ use SMW\Settings as SMWSettings;
 
 class Hooks {
 
+    /**
+     * CRITICAL: ExtensionFunctions hook fires VERY LATE in MediaWiki initialization,
+     * after SMW has already set up its globals. This is the ONLY reliable way to
+     * override $smwgResultFormats before SMW's printer factory reads it.
+     * 
+     * Without this hook, SMW reverts to default printers and our filtering never runs.
+     * This took extensive debugging to identify as the root cause.
+     */
     public static function onExtensionFunction() {
         wfDebugLog( 'fieldpermissions', 'onExtensionFunction called.' );
         
@@ -79,10 +87,18 @@ class Hooks {
     }
 
     /**
-     * Helper to override formats in both settings object and globals
+     * CRITICAL: This function forcefully replaces SMW's default result printers
+     * with our custom Fp*ResultPrinter classes that include filtering logic.
+     * 
+     * Must update BOTH the $settings object AND $GLOBALS['smwgResultFormats']
+     * because SMW reads from different sources depending on initialization order.
+     * The double-write to $GLOBALS is a defensive measure to ensure persistence.
      */
     private static function overrideFormats( $settings = null ) {
         // Define our overrides
+        // NOTE: Template format is commented out because TemplateResultPrinter class
+        // doesn't exist in this SMW version. Template queries will use SMW's default
+        // printer (without filtering) until we identify the correct class to extend.
         $overrides = [
             'table'      => \FieldPermissions\SMW\Printers\FpTableResultPrinter::class,
             'broadtable' => \FieldPermissions\SMW\Printers\FpTableResultPrinter::class,
@@ -106,6 +122,8 @@ class Hooks {
         }
 
         // 2. Update Globals (Force)
+        // CRITICAL: Must update both $smwgResultFormats and $GLOBALS directly
+        // because SMW's factory may read from either depending on timing
         global $smwgResultFormats;
         if ( !isset( $smwgResultFormats ) || !is_array( $smwgResultFormats ) ) {
             $smwgResultFormats = [];
@@ -113,6 +131,8 @@ class Hooks {
         $smwgResultFormats = array_merge( $smwgResultFormats, $overrides );
         
         // Double check by writing to $GLOBALS directly to be safe
+        // This defensive approach ensures the override persists even if SMW
+        // reinitializes the global variable later
         foreach ( $overrides as $fmt => $class ) {
             $GLOBALS['smwgResultFormats'][$fmt] = $class;
         }
@@ -178,8 +198,15 @@ class Hooks {
     }
 
     /**
-     * Make parser cache vary by user's visibility level
-     * This ensures different users see different cached versions
+     * CRITICAL: Makes parser cache vary by user's visibility level.
+     * 
+     * MediaWiki's parser cache is user-agnostic by default - one cached version
+     * for everyone. Without this hook, the first user's view (e.g., Admin seeing
+     * all columns) gets cached and served to ALL users, breaking permission filtering.
+     * 
+     * This hook adds the user's max level and groups to the cache key, ensuring
+     * each permission level gets its own cached version. This was the final piece
+     * needed to make multi-user filtering work correctly.
      */
     public static function onPageRenderingHash( &$confstr, $user, &$forOptions ) {
         $services = MediaWikiServices::getInstance();

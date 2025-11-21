@@ -1,257 +1,297 @@
 <?php
 
-/**
- * FieldPermissions extension — hooks implementation.
- *
- * Provides:
- *  - Parser functions (#field, #field-groups)
- *  - Parser output marking for permission-aware content
- *  - Cache variation based on user-level and group membership
- *  - SMW query field filtering (3.x + 4.x)
- *
- * @file
- * @ingroup Extensions
- * @license GPL-2.0-or-later
- */
-
 namespace FieldPermissions;
 
-use FieldPermissions\ParserFunctions\FieldFunction;
-use FieldPermissions\ParserFunctions\FieldGroupsFunction;
-use FieldPermissions\Permissions\LevelPermissionChecker;
-use FieldPermissions\Permissions\PermissionChecker;
-use FieldPermissions\Permissions\PermissionConfig;
-use FieldPermissions\Permissions\PropertyPermissionRegistry;
-use FieldPermissions\Utils\PropertyNameNormalizer;
-
-use MediaWiki\Context\RequestContext;
+use MediaWiki\Installer\DatabaseUpdater;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Output\OutputPage;
-use MediaWiki\Parser\Parser;
-use MediaWiki\Parser\PPFrame;
-use MediaWiki\Parser\ParserOutput;
-use MediaWiki\User\UserGroupManager;
+use MediaWiki\Permissions\Authority;
+use MediaWiki\Revision\RenderedRevision;
+use MediaWiki\Storage\EditResult;
 use MediaWiki\User\UserIdentity;
+use MediaWiki\Page\PageIdentity;
 
-/**
- * Hook handlers for the FieldPermissions extension.
- */
+use SMW\DIWikiPage;
+
+use FieldPermissions\Protection\VisibilityEditGuard;
+use FieldPermissions\Visibility\SmwQueryFilter;
+
+use SMW\Settings as SMWSettings;
+
 class Hooks {
 
-	/* ---------------------------------------------------------------------- */
-	/*  PARSER INITIALIZATION                                                  */
-	/* ---------------------------------------------------------------------- */
+    public static function onExtensionFunction() {
+        wfDebugLog( 'fieldpermissions', 'onExtensionFunction called.' );
+        
+        // 1. Try global override again (late binding)
+        self::overrideFormats();
 
-	/**
-	 * Register parser functions (#field, #field-groups) and reset per-parse registry.
-	 */
-	public static function onParserFirstCallInit( Parser $parser ): void {
+        // 2. Try to inject into SMW Factory if available
+        if ( class_exists( '\SMW\Query\ResultPrinters\ResultPrinter' ) ) {
+            wfDebugLog( 'fieldpermissions', 'CHECK: SMW ResultPrinter class exists.' );
+        }
 
-		wfDebugLog( 'fieldpermissions', 'onParserFirstCallInit: Registering parser functions and resetting property registry' );
+        // 3. Try to find the Registry Service
+        // Common service names in SMW 4+
+        $possibleServices = [
+            'SMW.ResultPrinterRegistry',
+            'SMW.Registry.ResultPrinter',
+            'SMW.ResultPrinterFactory'
+        ];
 
-		// Reset property registry only once per parse cycle.
-		PropertyPermissionRegistry::reset();
+        if ( class_exists( '\MediaWiki\MediaWikiServices' ) ) {
+            $services = MediaWikiServices::getInstance();
+            foreach ( $possibleServices as $serviceName ) {
+                if ( $services->hasService( $serviceName ) ) {
+                    wfDebugLog( 'fieldpermissions', "CHECK: Found service: $serviceName" );
+                    // Try to register here if it's a registry
+                    try {
+                        $service = $services->get( $serviceName );
+                        if ( method_exists( $service, 'registerPrinterClass' ) ) {
+                             wfDebugLog( 'fieldpermissions', "CHECK: Registering printers on service $serviceName" );
+                             // Register manually
+                             $service->registerPrinterClass( 'table', \FieldPermissions\SMW\Printers\FpTableResultPrinter::class );
+                             // ... others
+                        }
+                    } catch ( \Exception $e ) {
+                        wfDebugLog( 'fieldpermissions', "CHECK: Failed to access service $serviceName: " . $e->getMessage() );
+                    }
+                }
+            }
+        }
+    }
 
-		$services          = MediaWikiServices::getInstance();
-		$permissionChecker = $services->get( PermissionChecker::SERVICE_NAME );
+    /* ----------------------------------------------------------------------
+     * 0. Initialize - Override SMW Settings (Tier 2)
+     * -------------------------------------------------------------------- */
+    public static function onSMWSettingsBeforeInitializationComplete( $settings = null ) {
+        wfDebugLog( 'fieldpermissions', 'onSMWSettingsBeforeInitializationComplete called.' );
+        self::overrideFormats( $settings );
+        return true;
+    }
 
-		$parser->setFunctionHook(
-			'field',
-			[ FieldFunction::class, 'factory' ],
-			Parser::SFH_OBJECT_ARGS
-		);
-		
-		$parser->setFunctionHook(
-			'field-groups',
-			[ FieldGroupsFunction::class, 'factory' ],
-			Parser::SFH_OBJECT_ARGS
-		);
-	}
+    /* ----------------------------------------------------------------------
+     * 0a. SetupAfterCache - Force Global Override
+     * -------------------------------------------------------------------- */
+    public static function onSetupAfterCache() {
+        wfDebugLog( 'fieldpermissions', 'onSetupAfterCache called - forcing global overrides.' );
+        self::overrideFormats();
+        return true;
+    }
 
-	/* ---------------------------------------------------------------------- */
-	/*  OUTPUT PAGE CACHE CONTROL                                             */
-	/* ---------------------------------------------------------------------- */
+    /**
+     * Helper to override formats in both settings object and globals
+     */
+    private static function overrideFormats( $settings = null ) {
+        // Define our overrides
+        $overrides = [
+            'table'      => \FieldPermissions\SMW\Printers\FpTableResultPrinter::class,
+            'broadtable' => \FieldPermissions\SMW\Printers\FpTableResultPrinter::class,
+            'list'       => \FieldPermissions\SMW\Printers\FpListResultPrinter::class,
+            'ul'         => \FieldPermissions\SMW\Printers\FpListResultPrinter::class,
+            'ol'         => \FieldPermissions\SMW\Printers\FpListResultPrinter::class,
+            'template'   => \FieldPermissions\SMW\Printers\FpTemplateResultPrinter::class,
+            'json'       => \FieldPermissions\SMW\Printers\FpJsonResultPrinter::class,
+            'csv'        => \FieldPermissions\SMW\Printers\FpCsvResultPrinter::class,
+            'dsv'        => \FieldPermissions\SMW\Printers\FpCsvResultPrinter::class,
+            'default'    => \FieldPermissions\SMW\Printers\FpTableResultPrinter::class,
+        ];
 
-	/**
-	 * Disable client-side caching when FieldPermissions content was used.
-	 */
-	public static function onOutputPageParserOutput(
-		OutputPage $out,
-		ParserOutput $parserOutput
-	): void {
+        // 1. Update Settings object if provided
+        if ( $settings && is_object( $settings ) && method_exists( $settings, 'get' ) && method_exists( $settings, 'set' ) ) {
+            $current = $settings->get( 'smwgResultFormats' );
+            if ( is_array( $current ) ) {
+                $settings->set( 'smwgResultFormats', array_merge( $current, $overrides ) );
+                wfDebugLog( 'fieldpermissions', 'OverrideFormats: Updated SMW Settings object.' );
+            }
+        }
 
-		// Do NOT reset the registry here — this hook fires too late.
+        // 2. Update Globals (Force)
+        global $smwgResultFormats;
+        if ( !isset( $smwgResultFormats ) || !is_array( $smwgResultFormats ) ) {
+            $smwgResultFormats = [];
+        }
+        $smwgResultFormats = array_merge( $smwgResultFormats, $overrides );
+        
+        // Double check by writing to $GLOBALS directly to be safe
+        foreach ( $overrides as $fmt => $class ) {
+            $GLOBALS['smwgResultFormats'][$fmt] = $class;
+        }
 
-		if ( !$parserOutput->getExtensionData( 'usesFieldPermissions' ) ) {
-			return;
-		}
+        wfDebugLog( 'fieldpermissions', 'OverrideFormats: Updated globals.' );
+    }
 
-		wfDebugLog( 'fieldpermissions', 'onOutputPageParserOutput: Disabling client-side caching for FieldPermissions content' );
+    /* ----------------------------------------------------------------------
+     * 0b. Initialize - Register printers after SMW loads
+     * -------------------------------------------------------------------- */
+    public static function onLoadExtensionSchemaUpdates( DatabaseUpdater $updater ) {
+        wfDebugLog( 'fieldpermissions', 'onLoadExtensionSchemaUpdates hook called' );
+        $dir = dirname( __DIR__ );
 
-		// Fully disable caching
-		$out->enableClientCache( false );
-		$out->setCdnMaxage( 0 );
-		$out->setLastModified( false );
+        if ( $updater->getDB()->getType() === 'sqlite' ) {
+            $updater->addExtensionTable( 'fp_visibility_levels', "$dir/sql/sqlite/tables.sql" );
+            $updater->addExtensionTable( 'fp_group_levels', "$dir/sql/sqlite/tables.sql" );
+        }
 
-		// Prevent edge caches from reusing content across users
-		$out->addVaryHeader( 'Cookie' );
-	}
+        return true;
+    }
+    
+    /* ----------------------------------------------------------------------
+     * 1. BeforePageDisplay — working as is
+     * -------------------------------------------------------------------- */
+    public static function onBeforePageDisplay( $out, $skin ) {
+        wfDebugLog( 'fieldpermissions', 'TEST: onBeforePageDisplay hook called for page: ' . $out->getTitle()->getPrefixedText() );
+        
+        // CHECK: Does autoloader work?
+        if ( class_exists( 'FieldPermissions\SMW\Printers\FpTableResultPrinter' ) ) {
+             wfDebugLog( 'fieldpermissions', 'CHECK: FpTableResultPrinter class exists and is autoloadable.' );
+        } else {
+             wfDebugLog( 'fieldpermissions', 'CHECK: FpTableResultPrinter class NOT found.' );
+        }
 
-	/* ---------------------------------------------------------------------- */
-	/*  PARSER CACHE VARIATION                                                */
-	/* ---------------------------------------------------------------------- */
+        // CHECK: Are globals persisted?
+        global $smwgResultFormats;
+        if ( isset( $smwgResultFormats['table'] ) ) {
+             wfDebugLog( 'fieldpermissions', 'CHECK: global $smwgResultFormats[table] is: ' . $smwgResultFormats['table'] );
+        } else {
+             wfDebugLog( 'fieldpermissions', 'CHECK: global $smwgResultFormats[table] is NOT set.' );
+        }
 
-	/**
-	 * Vary parser cache by permission level AND exact group membership.
-	 *
-	 * Ensures:
-	 *  - Level-based permissions do not cross users
-	 *  - Group-based permissions do not cross users with same level
-	 */
-	public static function onPageRenderingHash(
-		string &$confstr,
-		UserIdentity $user,
-		array &$forOptions
-	): void {
+        // ATTEMPT: Force SMW Registry Load
+        try {
+            // Try to get the ApplicationFactory if available
+            if ( class_exists( '\SMW\ApplicationFactory' ) ) {
+                $factory = \SMW\ApplicationFactory::getInstance();
+                wfDebugLog( 'fieldpermissions', 'CHECK: Found \SMW\ApplicationFactory' );
+                
+                // Try to get registry - methods vary by version
+                if ( method_exists( $factory, 'getResultPrinterRegistry' ) ) {
+                    $registry = $factory->getResultPrinterRegistry();
+                    wfDebugLog( 'fieldpermissions', 'CHECK: Retrieved ResultPrinterRegistry via ApplicationFactory' );
+                    // Just getting it might trigger the init hook
+                }
+            }
+        } catch ( \Exception $e ) {
+            wfDebugLog( 'fieldpermissions', 'CHECK: Error trying to access SMW registry: ' . $e->getMessage() );
+        }
+        
+        return true;
+    }
 
-		$services = MediaWikiServices::getInstance();
-		$config = $services->get( PermissionConfig::SERVICE_NAME );
-		$groupManager = $services->getUserGroupManager();
+    /**
+     * Make parser cache vary by user's visibility level
+     * This ensures different users see different cached versions
+     */
+    public static function onPageRenderingHash( &$confstr, $user, &$forOptions ) {
+        $services = MediaWikiServices::getInstance();
+        
+        if ( !$services->hasService( 'FieldPermissions.PermissionEvaluator' ) ) {
+            return true;
+        }
+        
+        $evaluator = $services->get( 'FieldPermissions.PermissionEvaluator' );
+        $profile = $evaluator->getUserProfile( $user );
+        
+        // Add user's max level and groups to cache key
+        $confstr .= '!fplevel=' . $profile->getMaxLevel();
+        $confstr .= '!fpgroups=' . implode( ',', $profile->getGroups() );
+        
+        wfDebugLog( 'fieldpermissions', "PageRenderingHash: Added cache key for user " . $user->getName() . " with level " . $profile->getMaxLevel() );
+        
+        return true;
+    }
 
-		$groups        = $groupManager->getUserEffectiveGroups( $user );
-		$maxLevelValue = 0;
+    /* ----------------------------------------------------------------------
+     * 2. Permission denial during edit/create
+     * -------------------------------------------------------------------- */
+    public static function onGetUserPermissionsErrors(
+        $title,
+        $user,
+        $action,
+        &$result
+    ) {
+        wfDebugLog( 'fieldpermissions', 'onGetUserPermissionsErrors hook called for action: ' . $action . ', page: ' . ( $title ? $title->getPrefixedText() : 'null' ) );
+        
+        if ( $action !== 'edit' && $action !== 'create' ) {
+            return true;
+        }
 
-		foreach ( $groups as $group ) {
-			$levelName = $config->getGroupMaxLevel( $group );
-			if ( $levelName === null ) {
-				continue;
-			}
-			$value = $config->getLevelValue( $levelName );
-			if ( $value !== null && $value > $maxLevelValue ) {
-				$maxLevelValue = $value;
-			}
-		}
+        $services = MediaWikiServices::getInstance();
 
-		// Hash the group memberships so distinct group sets don't share caches.
-		$groupHash = md5( implode( ',', $groups ) );
+        if ( !$services->hasService( 'FieldPermissions.VisibilityEditGuard' ) ) {
+            wfDebugLog( 'fieldpermissions', 'FieldPermissions.VisibilityEditGuard service not available' );
+            return true;
+        }
 
-		$confstr .= '!FieldPermissions:' . $maxLevelValue . ':' . $groupHash;
+        $guard = $services->get( 'FieldPermissions.VisibilityEditGuard' );
+        $status = $guard->checkEditPermission( $title, $user );
 
-		wfDebugLog( 'fieldpermissions', 'onPageRenderingHash: User ' . $user->getName() . ' (ID: ' . $user->getId() . ') maxLevel=' . $maxLevelValue . ' groups=' . implode( ',', $groups ) );
-	}
+        if ( !$status->isOK() ) {
+            wfDebugLog( 'fieldpermissions', 'checkEditPermission failed for user ' . $user->getName() . ' on page ' . $title->getPrefixedText() );
+            $result = $status->getErrorsArray();
+            return false;
+        }
 
-	/* ---------------------------------------------------------------------- */
-	/*  SMW 4.x – FILTER PROPERTIES DURING PRINTING                           */
-	/* ---------------------------------------------------------------------- */
+        return true;
+    }
 
-	public static function onSMWResultArrayBeforePrint(
-		\SMWResultArray $resultArray,
-		string &$output,
-		\SMW\Query\ResultPrinters\ResultPrinter $printer
-	) {
-		// Normalize property name
-		$property = PropertyNameNormalizer::normalize(
-			$resultArray->getPrintRequest()->getLabel()
-		);
+    /* ----------------------------------------------------------------------
+     * 3. MultiContentSave validation
+     * -------------------------------------------------------------------- */
+    public static function onMultiContentSave(
+        RenderedRevision $renderedRevision,
+        UserIdentity $user,
+        $performer,
+        $slots,
+        $editResult = null
+    ) {
+        try {
+            $pageTitle = $renderedRevision->getRevision()->getPageAsLinkTarget();
+            $titleText = (string)$pageTitle;
+        } catch ( \Exception $e ) {
+            $titleText = 'unknown';
+        }
+        wfDebugLog( 'fieldpermissions', 'onMultiContentSave hook called for user: ' . $user->getName() . ', page: ' . $titleText );
+        
+        $services = MediaWikiServices::getInstance();
 
-		if ( !PropertyPermissionRegistry::isPropertyProtected( $property ) ) {
-			return true;
-		}
+        if ( !$services->hasService( 'FieldPermissions.VisibilityEditGuard' ) ) {
+            wfDebugLog( 'fieldpermissions', 'FieldPermissions.VisibilityEditGuard service not available' );
+            return true;
+        }
 
-		$requiredLevels = PropertyPermissionRegistry::getPropertyLevels( $property );
-		if ( !$requiredLevels ) {
-			return true;
-		}
+        $guard = $services->get( 'FieldPermissions.VisibilityEditGuard' );
 
-		$services = MediaWikiServices::getInstance();
-		$config = $services->get( PermissionConfig::SERVICE_NAME );
-		$groupManager = $services->getUserGroupManager();
+        if ( is_iterable( $slots ) ) {
+            foreach ( $slots as $slot ) {
+                $content = $slot->getContent();
+                $status = $guard->validateContent( $content, $user );
+                if ( !$status->isOK() ) {
+                    wfDebugLog( 'fieldpermissions', 'validateContent failed for user ' . $user->getName() . ' on page ' . $titleText );
+                    return $status;
+                }
+            }
+        }
 
-		$checker = new LevelPermissionChecker(
-			$config,
-			$groupManager
-		);
+        return true;
+    }
 
-		$user = RequestContext::getMain()->getUser();
+    /* ----------------------------------------------------------------------
+     * 5. SMW Factbox BeforeContentGeneration (VALID)
+     * -------------------------------------------------------------------- */
+    public static function onSMWFactboxBeforeContentGeneration(
+        \SMW\DIWikiPage $subject,
+        array &$properties
+    ) {
+        wfDebugLog( 'fieldpermissions', 'onSMWFactboxBeforeContentGeneration hook called for subject: ' . $subject->getTitle()->getPrefixedText() );
+        
+        $services = MediaWikiServices::getInstance();
 
-		wfDebugLog( 'fieldpermissions', 'onSMWResultArrayBeforePrint: Checking property "' . $property . '" for user ' . $user->getName() . ' (ID: ' . $user->getId() . ') requiredLevels=' . implode( ',', $requiredLevels ) );
+        if ( !$services->hasService( 'FieldPermissions.SmwQueryFilter' ) ) {
+            wfDebugLog( 'fieldpermissions', 'FieldPermissions.SmwQueryFilter service not available' );
+            return;
+        }
 
-		// Most restrictive level
-		$maxValue = 0;
-		$maxLevel = null;
-
-		foreach ( $requiredLevels as $level ) {
-			$value = $config->getLevelValue( $level );
-			if ( $value !== null && $value > $maxValue ) {
-				$maxValue = $value;
-				$maxLevel = $level;
-			}
-		}
-
-		// Allow or block
-		if ( $maxLevel !== null && $checker->hasAccess( $user, $maxLevel ) ) {
-			wfDebugLog( 'fieldpermissions', 'onSMWResultArrayBeforePrint: Allowing property "' . $property . '" for user ' . $user->getName() );
-			return true;
-		}
-
-		wfDebugLog( 'fieldpermissions', 'onSMWResultArrayBeforePrint: Blocking property "' . $property . '" for user ' . $user->getName() . ' (required level: ' . $maxLevel . ')' );
-		$output = '';
-		return false;
-	}
-
-	/* ---------------------------------------------------------------------- */
-	/*  SMW 3.x – FILTER DURING DATA PROCESSING                                */
-	/* ---------------------------------------------------------------------- */
-
-	public static function onSMWResultArrayBeforeProcessing(
-		\SMWResultArray $resultArray,
-		array &$dataItems
-	) {
-		$property = PropertyNameNormalizer::normalize(
-			$resultArray->getPrintRequest()->getLabel()
-		);
-
-		if ( !PropertyPermissionRegistry::isPropertyProtected( $property ) ) {
-			return true;
-		}
-
-		$requiredLevels = PropertyPermissionRegistry::getPropertyLevels( $property );
-		if ( !$requiredLevels ) {
-			return true;
-		}
-
-		$services = MediaWikiServices::getInstance();
-		$config = $services->get( PermissionConfig::SERVICE_NAME );
-		$groupManager = $services->getUserGroupManager();
-
-		$checker = new LevelPermissionChecker(
-			$config,
-			$groupManager
-		);
-
-		$user = RequestContext::getMain()->getUser();
-
-		wfDebugLog( 'fieldpermissions', 'onSMWResultArrayBeforeProcessing: Checking property "' . $property . '" for user ' . $user->getName() . ' (ID: ' . $user->getId() . ') requiredLevels=' . implode( ',', $requiredLevels ) );
-
-		$maxValue = 0;
-		$maxLevel = null;
-
-		foreach ( $requiredLevels as $level ) {
-			$value = $config->getLevelValue( $level );
-			if ( $value !== null && $value > $maxValue ) {
-				$maxValue = $value;
-				$maxLevel = $level;
-			}
-		}
-
-		if ( $maxLevel !== null && $checker->hasAccess( $user, $maxLevel ) ) {
-			wfDebugLog( 'fieldpermissions', 'onSMWResultArrayBeforeProcessing: Allowing property "' . $property . '" for user ' . $user->getName() );
-			return true;
-		}
-
-		wfDebugLog( 'fieldpermissions', 'onSMWResultArrayBeforeProcessing: Blocking property "' . $property . '" for user ' . $user->getName() . ' (required level: ' . $maxLevel . ')' );
-		$dataItems = [];
-		return false;
-	}
-
+        $filter = $services->get( 'FieldPermissions.SmwQueryFilter' );
+        $filter->filterFactboxProperties( $subject, $properties );
+    }
 }

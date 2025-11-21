@@ -136,9 +136,6 @@ docker compose exec -T mediawiki bash -lc "
     echo ''
     echo '// === FieldPermissions ==='
     echo 'wfLoadExtension( \"FieldPermissions\" );'
-    echo '\$wgFieldPermissionsLevels = [\"public\"=>0, \"internal\"=>10, \"sensitive\"=>20];'
-    echo '\$wgFieldPermissionsGroupMaxLevel = [\"*\"=>\"public\", \"user\"=>\"public\", \"lab_member\"=>\"internal\", \"pi\"=>\"sensitive\"];'
-    echo '\$wgFieldPermissionsGroupSets = [\"all_admins\"=>[\"sysop\",\"pi\"]];'
     echo '\$wgDebugLogGroups[\"fieldpermissions\"] = \"$CONTAINER_LOG_FILE\";'
     echo ''
     echo '// Define custom user groups for FieldPermissions'
@@ -146,6 +143,9 @@ docker compose exec -T mediawiki bash -lc "
     echo '\$wgGroupPermissions[\"pi\"] = \$wgGroupPermissions[\"user\"];'
   } >> $CONTAINER_WIKI/LocalSettings.php
 "
+
+echo "==> Running MW updater for FieldPermissions schema..."
+docker compose exec -T mediawiki php maintenance/update.php --quick
 
 # ---------------- CACHE DIRECTORY ----------------
 

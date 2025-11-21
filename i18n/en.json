@@ -4,6 +4,22 @@
 			"Daniel Aharoni"
 		]
 	},
-	"fieldpermissions-desc": "Provides fine-grained field-level access control using permission levels or groups."
+	"fieldpermissions-desc": "Provides fine-grained field-level access control using permission levels or groups.",
+	"fieldpermissions-managevisibility": "Manage Field Visibility",
+	"fieldpermissions-manage-levels-header": "Visibility Levels",
+	"fieldpermissions-manage-groups-header": "Group Permissions",
+	"fieldpermissions-level-name": "Level Name (e.g. public, internal)",
+	"fieldpermissions-numeric-level": "Numeric Level (Higher = More Restrictive)",
+	"fieldpermissions-page-title": "Page Title (e.g. Visibility:Public)",
+	"fieldpermissions-page-title-help": "Optional. Links to a wiki page describing this level.",
+	"fieldpermissions-add-level": "Add Level",
+	"fieldpermissions-level-deleted": "Level deleted.",
+	"fieldpermissions-group-name": "Group Name (e.g. sysop, user)",
+	"fieldpermissions-max-level": "Maximum Visibility Level",
+	"fieldpermissions-set-group-level": "Set Group Level",
+	"fieldpermissions-edit-denied-visibility": "You do not have permission to edit Visibility levels.",
+	"fieldpermissions-edit-denied-property": "You do not have permission to edit this restricted property.",
+	"fieldpermissions-edit-denied-content": "You do not have permission to add visibility controls to this content.",
+    "action-fp-manage-visibility": "manage field visibility settings",
+    "right-fp-manage-visibility": "Manage field visibility settings"
 }
-

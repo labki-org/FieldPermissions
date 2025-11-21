@@ -6,109 +6,127 @@ use FieldPermissions\Config\VisibilityLevelStore;
 use FieldPermissions\Model\VisibilityLevel;
 use SMW\DIProperty;
 use SMW\DIWikiPage;
-use SMW\Store;
-use Title;
 
+/**
+ * VisibilityResolver
+ *
+ * Responsible for:
+ *   - Determining a property's assigned visibility level
+ *   - Determining which user groups are explicitly allowed to see a property
+ *
+ * This class interacts *directly* with SMW's Store to query semantic
+ * annotations attached to Property pages:
+ *
+ *     [[Has visibility level::Visibility:Internal]]
+ *     [[Visible to::pi]]
+ *
+ * Resolver methods normalize identifiers robustly so user input stored in
+ * SMW can vary while still matching configuration-level definitions.
+ *
+ * Caches results per-request to minimize redundant SMW queries.
+ */
 class VisibilityResolver {
+
+	/** @var VisibilityLevelStore */
 	private VisibilityLevelStore $levelStore;
 
-	// Cache for property levels to avoid repeated DB lookups in one request
+	/** @var array<string,int> Cache: propertyKey → numeric visibility level */
 	private array $propertyLevelCache = [];
+
+	/** @var array<string,string[]> Cache: propertyKey → visible-to groups */
 	private array $propertyVisibleToCache = [];
 
 	public function __construct( VisibilityLevelStore $levelStore ) {
 		$this->levelStore = $levelStore;
 	}
 
+	/* --------------------------------------------------------------------
+	 * PUBLIC API
+	 * ------------------------------------------------------------------ */
+
 	/**
 	 * Get the numeric visibility level for a property.
 	 *
-	 * 1. Check if property page has "Has visibility level"
-	 * 2. If so, resolve that level name/page to numeric value.
-	 * 3. Default to 0 (public).
+	 * Lookup order:
+	 *   1. Property annotations for "Has visibility level"
+	 *   2. Resolve the page/string identifier to a VisibilityLevel model
+	 *   3. Default: 0 (public)
 	 *
 	 * @param DIProperty $property
 	 * @return int
 	 */
-     public function getPropertyLevel( DIProperty $property ): int {
+	public function getPropertyLevel( DIProperty $property ): int {
 		$key = $property->getKey();
 		if ( isset( $this->propertyLevelCache[$key] ) ) {
 			return $this->propertyLevelCache[$key];
 		}
 
-		// Default public
-		$level = 0;
+		$levelValue = 0;  // Default: public
 
 		try {
-			// We need to look up "Has visibility level" (property) on the property page.
-			// Let's assume the property for "Has visibility level" is defined as "Has visibility level"
-			// or we can use a fixed key if we defined it in the setup.
-			// For now, we assume user created property "Has visibility level".
-			
-			// Get SMW store - try multiple methods for compatibility
-			$store = null;
-			if ( class_exists( '\SMW\ApplicationFactory' ) ) {
-				$store = \SMW\ApplicationFactory::getInstance()->getStore();
-			} elseif ( class_exists( '\SMW\StoreFactory' ) ) {
-				$store = \SMW\StoreFactory::getStore();
-			}
-			
+			$store = $this->getSMWStore();
 			if ( !$store ) {
-				wfDebugLog( 'fieldpermissions', "VisibilityResolver: Could not get SMW store." );
-				$this->propertyLevelCache[$key] = $level;
-				return $level;
+				wfDebugLog( 'fieldpermissions', "VisibilityResolver: No SMW store available." );
+				return $this->propertyLevelCache[$key] = $levelValue;
 			}
-			
-			// The subject is the property page itself
-			$subject = $property->getDiWikiPage();
-			
-			// The property we are looking for on that page is "Has visibility level"
-			// SMW normalizes property names with spaces to underscores
-			$hasVisLevelProp = new DIProperty( 'Has_visibility_level' );
-			
-			wfDebugLog( 'fieldpermissions', "Looking up Has_visibility_level for property: " . $property->getKey() );
-			
-            $res = $store->getPropertyValues( $subject, $hasVisLevelProp );
-            
-            foreach ( $res as $di ) {
-                $resolved = null;
-                
-                if ( $di instanceof DIWikiPage ) {
-                    // Prefer the prefixed page title (e.g. "Visibility:PI_Only")
-                    $resolved = $this->resolveLevelFromIdentifier(
-                        $di->getTitle()->getPrefixedText()
-                    );
-                    
-                    if ( !$resolved ) {
-                        // Fallback to the plain title text (e.g. "PI Only")
-                        $resolved = $this->resolveLevelFromIdentifier(
-                            $di->getTitle()->getText()
-                        );
-                    }
-                } elseif ( $di instanceof \SMW\DIString || $di instanceof \SMW\DIBlob ) {
-                    $resolved = $this->resolveLevelFromIdentifier( $di->getString() );
-                }
 
-                if ( $resolved ) {
-                    $level = $resolved->getNumericLevel();
-                    break;
-                }
-            }
-			
-		} catch ( \Exception $e ) {
-			wfDebugLog( 'fieldpermissions', "Error resolving property level: " . $e->getMessage() );
+			$subject = $property->getDiWikiPage();
+			$visProp = new DIProperty( 'Has_visibility_level' );  // SMW normalized form
+
+			wfDebugLog(
+				'fieldpermissions',
+				"VisibilityResolver: Checking Has_visibility_level on property {$property->getKey()}"
+			);
+
+			$values = $store->getPropertyValues( $subject, $visProp );
+
+			foreach ( $values as $di ) {
+				// DIWikiPage case: referencing a dedicated Visibility: page
+				if ( $di instanceof DIWikiPage ) {
+					$title = $di->getTitle();
+					$resolved =
+						$this->resolveLevelFromIdentifier( $title->getPrefixedText() ) ??
+						$this->resolveLevelFromIdentifier( $title->getText() );
+				}
+				// String/blob case
+				elseif ( $this->isStringDataItem( $di ) ) {
+					$resolved = $this->resolveLevelFromIdentifier( $di->getString() );
+				}
+				else {
+					wfDebugLog(
+						'fieldpermissions',
+						"VisibilityResolver: Unexpected DI type in visibility level: " . get_class( $di )
+					);
+					continue;
+				}
+
+				if ( $resolved instanceof VisibilityLevel ) {
+					$levelValue = $resolved->getNumericLevel();
+					break;
+				}
+			}
+		}
+		catch ( \Exception $e ) {
+			wfDebugLog(
+				'fieldpermissions',
+				"VisibilityResolver: Exception resolving property level: " . $e->getMessage()
+			);
 		}
 
-		$this->propertyLevelCache[$key] = $level;
-		return $level;
+		return $this->propertyLevelCache[$key] = $levelValue;
 	}
 
 	/**
-	 * Get list of groups explicitly allowed to see this property.
-	 * Mapped from "Visible to" property.
+	 * Resolve which user groups are explicitly allowed to see this property.
+	 * Sourced from:
+	 *
+	 *     [[Visible to::pi]]
+	 *     [[Visible to::Group:research_team]]
+	 *
+	 * Result is case-insensitive and normalized.
 	 *
 	 * @param DIProperty $property
-	 * @return string[] Group names
+	 * @return string[] Normalized group names
 	 */
 	public function getPropertyVisibleTo( DIProperty $property ): array {
 		$key = $property->getKey();
@@ -117,174 +135,186 @@ class VisibilityResolver {
 		}
 
 		$groups = [];
-		try {
-			$store = null;
-			if ( class_exists( '\SMW\ApplicationFactory' ) ) {
-				$store = \SMW\ApplicationFactory::getInstance()->getStore();
-			} elseif ( class_exists( '\SMW\StoreFactory' ) ) {
-				$store = \SMW\StoreFactory::getStore();
-			}
 
+		try {
+			$store = $this->getSMWStore();
 			if ( !$store ) {
-				wfDebugLog( 'fieldpermissions', 'VisibilityResolver: Could not get SMW store.' );
-				$this->propertyVisibleToCache[$key] = $groups;
-				return $groups;
+				wfDebugLog( 'fieldpermissions', 'VisibilityResolver: No SMW store available.' );
+				return $this->propertyVisibleToCache[$key] = [];
 			}
 
 			$subject = $property->getDiWikiPage();
-			$visibleToProp = new DIProperty( 'Visible_to' );
-			$res = $store->getPropertyValues( $subject, $visibleToProp );
+			$visProp = new DIProperty( 'Visible_to' );
+
+			$values = $store->getPropertyValues( $subject, $visProp );
 
 			wfDebugLog(
 				'fieldpermissions',
-				"VisibilityResolver: Found " . count( $res ) . " 'Visible to' values for property {$property->getKey()}"
+				"VisibilityResolver: Found " . count( $values ) .
+				" Visible_to values for {$property->getKey()}"
 			);
 
-			foreach ( $res as $di ) {
+			foreach ( $values as $di ) {
+
+				// String / blob annotation: [[Visible to::pi]]
 				if ( $this->isStringDataItem( $di ) ) {
-					$raw = method_exists( $di, 'getString' ) ? $di->getString() : '';
-					$normalized = $this->normalizeGroupName( $raw );
-					wfDebugLog(
-						'fieldpermissions',
-						"VisibilityResolver: VisibleTo raw string '{$raw}' normalized to '{$normalized}'"
-					);
-					if ( $normalized !== '' ) {
-						$groups[] = $normalized;
-					}
-				} elseif ( $this->isWikiPageDataItem( $di ) ) {
+					$normalized = $this->normalizeGroupName( $di->getString() );
+				}
+				// Page link annotation: [[Visible to::Group:PI]]
+				elseif ( $this->isWikiPageDataItem( $di ) ) {
 					$title = $di->getTitle();
-					$raw = $title->getPrefixedText();
-					$normalized = $this->normalizeGroupName( $raw );
-					if ( $normalized === '' ) {
-						$raw = $title->getText();
-						$normalized = $this->normalizeGroupName( $raw );
-					}
+					$normalized =
+						$this->normalizeGroupName( $title->getPrefixedText() ) ?:
+						$this->normalizeGroupName( $title->getText() );
+				}
+				else {
 					wfDebugLog(
 						'fieldpermissions',
-						"VisibilityResolver: VisibleTo page '{$raw}' normalized to '{$normalized}'"
+						"VisibilityResolver: Unexpected DI type in Visible_to: " . get_class( $di )
 					);
-					if ( $normalized !== '' ) {
-						$groups[] = $normalized;
-					}
-				} else {
-					wfDebugLog(
-						'fieldpermissions',
-						"VisibilityResolver: VisibleTo value of unexpected type " . get_class( $di )
-					);
+					continue;
+				}
+
+				if ( $normalized !== '' ) {
+					$groups[] = $normalized;
 				}
 			}
-		} catch ( \Exception $e ) {
-			wfDebugLog( 'fieldpermissions', 'Error resolving visible to: ' . $e->getMessage() );
+		}
+		catch ( \Exception $e ) {
+			wfDebugLog(
+				'fieldpermissions',
+				"VisibilityResolver: Exception resolving Visible_to: " . $e->getMessage()
+			);
 		}
 
 		$groups = array_values( array_unique( $groups ) );
+
 		wfDebugLog(
 			'fieldpermissions',
-			"VisibilityResolver: Final VisibleTo groups for {$property->getKey()}: " . implode( ', ', $groups )
+			"VisibilityResolver: Final Visible_to groups for {$property->getKey()}: "
+			. implode( ', ', $groups )
 		);
 
-		$this->propertyVisibleToCache[$key] = $groups;
-		return $groups;
+		return $this->propertyVisibleToCache[$key] = $groups;
 	}
-    /**
-     * Resolve a visibility level by any identifier the user might provide:
-     * - Level name ("pi_only", "PI Only")
-     * - Visibility page title ("Visibility:PI_Only", "Visibility:PI Only")
-     *
-     * @param string $identifier
-     * @return \FieldPermissions\Model\VisibilityLevel|null
-     */
-    private function resolveLevelFromIdentifier( string $identifier ): ?VisibilityLevel {
-        $normalized = $this->normalizeIdentifier( $identifier );
-        if ( $normalized === '' ) {
-            return null;
-        }
 
-        foreach ( $this->levelStore->getAllLevels() as $level ) {
-            $candidates = array_filter( [
-                $level->getName(),
-                $level->getPageTitle()
-            ] );
+	/* --------------------------------------------------------------------
+	 * LEVEL RESOLUTION HELPERS
+	 * ------------------------------------------------------------------ */
 
-            foreach ( $candidates as $candidate ) {
-                if ( $this->normalizeIdentifier( $candidate ) === $normalized ) {
-                    return $level;
-                }
-            }
-        }
+	/**
+	 * Attempt to resolve a VisibilityLevel using multiple possible identifiers:
+	 *
+	 * Accepts:
+	 *   - Level name ("internal", "pi_only")
+	 *   - Page title ("Visibility:Internal", "Visibility:PI Only")
+	 *   - Un-prefixed title ("Internal")
+	 *
+	 * All are normalized for matching.
+	 *
+	 * @param string $identifier
+	 * @return VisibilityLevel|null
+	 */
+	private function resolveLevelFromIdentifier( string $identifier ): ?VisibilityLevel {
+		$normalized = $this->normalizeIdentifier( $identifier );
+		if ( $normalized === '' ) {
+			return null;
+		}
 
-        return null;
-    }
+		foreach ( $this->levelStore->getAllLevels() as $level ) {
+			$candidates = array_filter( [
+				$level->getName(),
+				$level->getPageTitle(),
+			] );
 
-    /**
-     * Normalize identifiers so that, e.g., "PI Only", "pi_only", and "PI_ONLY"
-     * all map to the same key.
-     *
-     * @param string $value
-     * @return string
-     */
-    private function normalizeIdentifier( string $value ): string {
-        $value = trim( $value );
-        if ( $value === '' ) {
-            return '';
-        }
+			foreach ( $candidates as $candidate ) {
+				if ( $this->normalizeIdentifier( $candidate ) === $normalized ) {
+					return $level;
+				}
+			}
+		}
 
-        // MediaWiki titles use underscores internally. Convert spaces to underscores,
-        // then lowercase so comparisons are case-insensitive.
-        return strtolower( str_replace( ' ', '_', $value ) );
-    }
+		return null;
+	}
 
-    /**
-     * Normalize group names so comparisons are case-insensitive and namespace-agnostic.
-     *
-     * Examples:
-     *  - "Sysop"        -> "sysop"
-     *  - "Group:Pi"     -> "pi"
-     *  - "Research Team" -> "research_team"
-     *
-     * @param string $group
-     * @return string
-     */
-    private function normalizeGroupName( string $group ): string {
-        $group = trim( $group );
-        if ( $group === '' ) {
-            return '';
-        }
+	/**
+	 * Normalize identifiers for comparison:
+	 *    "PI Only" → "pi_only"
+	 *    "Visibility:PI_only" → "pi_only"
+	 *
+	 * @param string $value
+	 * @return string
+	 */
+	private function normalizeIdentifier( string $value ): string {
+		$value = trim( $value );
+		if ( $value === '' ) {
+			return '';
+		}
 
-        // Strip namespace-like prefixes (e.g., "Group:PI")
-        if ( strpos( $group, ':' ) !== false ) {
-            $group = substr( $group, strrpos( $group, ':' ) + 1 );
-        }
+		// Strip namespace-like prefixes
+		if ( strpos( $value, ':' ) !== false ) {
+			$value = substr( $value, strrpos( $value, ':' ) + 1 );
+		}
 
-        // Convert spaces to underscores and lowercase for case-insensitive comparison
-        $group = str_replace( ' ', '_', $group );
+		return strtolower( str_replace( ' ', '_', $value ) );
+	}
 
-        return strtolower( $group );
-    }
+	/**
+	 * Normalize group names for matching Visible_to annotations.
+	 *
+	 * @param string $group
+	 * @return string
+	 */
+	private function normalizeGroupName( string $group ): string {
+		$group = trim( $group );
+		if ( $group === '' ) {
+			return '';
+		}
 
-    /**
-     * Some SMW versions expose visible-to values as legacy global classes (e.g. SMWDIBlob).
-     * Treat any of those blob/string types the same as DIString/DIBlob.
-     *
-     * @param mixed $di
-     * @return bool
-     */
-    private function isStringDataItem( $di ): bool {
-        return $di instanceof \SMW\DIString
-            || $di instanceof \SMW\DIBlob
-            || ( class_exists( '\SMWDIString', false ) && $di instanceof \SMWDIString )
-            || ( class_exists( '\SMWDIBlob', false ) && $di instanceof \SMWDIBlob );
-    }
+		if ( strpos( $group, ':' ) !== false ) {
+			$group = substr( $group, strrpos( $group, ':' ) + 1 );
+		}
 
-    /**
-     * Similar compatibility helper for wiki-page DI classes.
-     *
-     * @param mixed $di
-     * @return bool
-     */
-    private function isWikiPageDataItem( $di ): bool {
-        return $di instanceof DIWikiPage
-            || ( class_exists( '\SMWDIWikiPage', false ) && $di instanceof \SMWDIWikiPage );
-    }
+		return strtolower( str_replace( ' ', '_', $group ) );
+	}
+
+	/* --------------------------------------------------------------------
+	 * SMW COMPATIBILITY HELPERS
+	 * ------------------------------------------------------------------ */
+
+	/**
+	 * Retrieve SMW Store via best available API.
+	 *
+	 * @return \SMW\Store|null
+	 */
+	private function getSMWStore() {
+		if ( class_exists( '\SMW\ApplicationFactory' ) ) {
+			return \SMW\ApplicationFactory::getInstance()->getStore();
+		}
+
+		if ( class_exists( '\SMW\StoreFactory' ) ) {
+			return \SMW\StoreFactory::getStore();
+		}
+
+		return null;
+	}
+
+	/**
+	 * Identify DIString-like items.
+	 */
+	private function isStringDataItem( $di ): bool {
+		return $di instanceof \SMW\DIString
+			|| $di instanceof \SMW\DIBlob
+			|| ( class_exists( '\SMWDIString', false ) && $di instanceof \SMWDIString )
+			|| ( class_exists( '\SMWDIBlob', false ) && $di instanceof \SMWDIBlob );
+	}
+
+	/**
+	 * Identify DIWikiPage-like items.
+	 */
+	private function isWikiPageDataItem( $di ): bool {
+		return $di instanceof DIWikiPage
+			|| ( class_exists( '\SMWDIWikiPage', false ) && $di instanceof \SMWDIWikiPage );
+	}
 }
 

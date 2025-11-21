@@ -3,74 +3,65 @@
 namespace FieldPermissions\Protection;
 
 use MediaWiki\User\UserIdentity;
-use MediaWiki\Title\Title; // Correct namespace for Title in modern MW
+use MediaWiki\Title\Title;
 use MediaWiki\Status\Status;
 use MediaWiki\Content\Content;
 use MediaWiki\Content\TextContent;
+use MediaWiki\MediaWikiServices;
 use FieldPermissions\Visibility\VisibilityResolver;
 use FieldPermissions\Visibility\PermissionEvaluator;
 use SMW\DIProperty;
 
+/**
+ * VisibilityEditGuard
+ *
+ * Enforces restrictions on:
+ *   1. Editing visibility-definition pages
+ *   2. Editing restricted SMW Property pages
+ *   3. Injecting visibility-related SMW annotations into page content
+ *
+ * This ensures that visibility rules cannot be modified by non-authorized users.
+ */
 class VisibilityEditGuard {
+
 	private VisibilityResolver $resolver;
 	private PermissionEvaluator $evaluator;
+
+	/** @var string Prefix for visibility definition pages */
+	private const VISIBILITY_PREFIX = 'Visibility:';
 
 	public function __construct(
 		VisibilityResolver $resolver,
 		PermissionEvaluator $evaluator
 	) {
-		$this->resolver = $resolver;
-		$this->evaluator = $evaluator;
+		$this->resolver   = $resolver;
+		$this->evaluator  = $evaluator;
 	}
 
 	/**
-	 * Check if user has permission to edit a page (Visibility definition or Property page).
+	 * Enforces edit permissions for:
+	 *   - Visibility: pages (definition pages)
+	 *   - Property pages with existing visibility settings
 	 *
-	 * @param Title $title
+	 * @param Title        $title
 	 * @param UserIdentity $user
-	 * @return Status
+	 * @return Status  Fatal if blocked; Good otherwise
 	 */
 	public function checkEditPermission( $title, UserIdentity $user ): Status {
-		// If it's a Visibility: page (assuming user created this namespace or uses pseudo-namespace)
-		// If namespace is "Visibility" (we don't have ID, check name).
-		// Or if the title starts with "Visibility:" and we treat it as such.
-		
-		// Ideally we check if "Visibility" namespace exists.
-		// For now, check text prefix or namespace ID if known.
-		// Let's assume standard namespace check if it exists, or text.
-		
-		$nsName = $title->getNamespace() === NS_MAIN ? '' : $title->getNsText();
-		
-		// Check if title is in "Visibility" namespace (if it exists) or starts with "Visibility:" in main/other
-		// The plan mentioned "Create a dedicated Visibility namespace".
-		// Users might just use main namespace pages like "Visibility:Public".
-		
-		if ( $title->getText() === 'Visibility' || strpos( $title->getPrefixedText(), 'Visibility:' ) === 0 ) {
-			// It's a visibility definition page
+
+		// 1. Visibility definition pages (`Visibility:*`)
+		if ( $this->isVisibilityDefinitionPage( $title ) ) {
 			if ( !$this->canManageVisibility( $user ) ) {
 				return Status::newFatal( 'fieldpermissions-edit-denied-visibility' );
 			}
 		}
 
-		// If it's a Property page
+		// 2. SMW Property: pages
 		if ( $title->getNamespace() === SMW_NS_PROPERTY ) {
-			// Check if this property is currently restricted.
-			// We can't easily know if it IS restricted without parsing it or checking store.
-			// But we can check if it HAS restriction properties in store.
-			
-			try {
-				$property = new DIProperty( $title->getText() );
-				$level = $this->resolver->getPropertyLevel( $property );
-				$visibleTo = $this->resolver->getPropertyVisibleTo( $property );
-				
-				if ( $level > 0 || !empty( $visibleTo ) ) {
-					// It is restricted. Only managers can edit.
-					if ( !$this->canManageVisibility( $user ) ) {
-						return Status::newFatal( 'fieldpermissions-edit-denied-property' );
-					}
+			if ( $this->isRestrictedProperty( $title ) ) {
+				if ( !$this->canManageVisibility( $user ) ) {
+					return Status::newFatal( 'fieldpermissions-edit-denied-property' );
 				}
-			} catch ( \Exception $e ) {
-				// If invalid property, ignore
 			}
 		}
 
@@ -78,30 +69,34 @@ class VisibilityEditGuard {
 	}
 
 	/**
-	 * Validate content being saved.
-	 * Prevent adding "Has visibility level" or "Visible to" if not allowed.
+	 * Prevent non-authorized users from adding visibility annotations:
+	 *   [[Has visibility level::...]]
+	 *   [[Visible to::...]]
 	 *
-	 * @param Content $content
+	 * Only applies to TextContent.
+	 *
+	 * @param Content      $content
 	 * @param UserIdentity $user
 	 * @return Status
 	 */
 	public function validateContent( Content $content, UserIdentity $user ): Status {
+
+		// Authorized users may always edit
 		if ( $this->canManageVisibility( $user ) ) {
 			return Status::newGood();
 		}
 
+		// Only text content can contain SMW annotations
 		if ( !$content instanceof TextContent ) {
 			return Status::newGood();
 		}
 
 		$text = $content->getText();
 
-		// Check for "Has visibility level" or "Visible to"
-		// Regex for SMW syntax: [[Has visibility level::...]]
-		// Property names can be localized or strict. Assuming strict English for now as per extension.
-		
+		// Match SMW property syntax for visibility annotations
 		$patterns = [
-			'/\[\[\s*(Has visibility level|Visible to)\s*::/i',
+			'/\[\[\s*Has\s+visibility\s+level\s*::/i',
+			'/\[\[\s*Visible\s+to\s*::/i',
 		];
 
 		foreach ( $patterns as $pattern ) {
@@ -113,10 +108,61 @@ class VisibilityEditGuard {
 		return Status::newGood();
 	}
 
+	/* ---------------------------------------------------------------------
+	 * Helper Methods
+	 * ------------------------------------------------------------------ */
+
+	/**
+	 * Determines if the page is part of the "Visibility" definition system.
+	 *
+	 * Supports:
+	 *   - Literal prefix “Visibility:Something”
+	 *   - Possible future custom namespace
+	 *
+	 * @param Title $title
+	 * @return bool
+	 */
+	private function isVisibilityDefinitionPage( Title $title ): bool {
+		$full = $title->getPrefixedText();
+
+		return (
+			// Prefix-based detection (most common)
+			str_starts_with( $full, self::VISIBILITY_PREFIX ) ||
+			// Support a hypothetical dedicated namespace in future
+			$title->getNsText() === 'Visibility'
+		);
+	}
+
+	/**
+	 * Determines whether a Property: page already has visibility restrictions.
+	 *
+	 * @param Title $title
+	 * @return bool true if restricted
+	 */
+	private function isRestrictedProperty( Title $title ): bool {
+		try {
+			$property = new DIProperty( $title->getText() );
+
+			$level     = $this->resolver->getPropertyLevel( $property );
+			$visibleTo = $this->resolver->getPropertyVisibleTo( $property );
+
+			return $level > 0 || !empty( $visibleTo );
+		}
+		catch ( \Exception $e ) {
+			// Invalid property name — treat as unrestricted
+			return false;
+		}
+	}
+
+	/**
+	 * Checks whether the user has permission to manage visibility rules.
+	 *
+	 * @param UserIdentity $user
+	 * @return bool
+	 */
 	private function canManageVisibility( UserIdentity $user ): bool {
-		$services = \MediaWiki\MediaWikiServices::getInstance();
-		$permissionManager = $services->getPermissionManager();
-		return $permissionManager->userHasRight( $user, 'fp-manage-visibility' );
+		$services = MediaWikiServices::getInstance();
+		$pm = $services->getPermissionManager();
+		return $pm->userHasRight( $user, 'fp-manage-visibility' );
 	}
 }
-

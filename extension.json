@@ -15,7 +15,7 @@
     "LoadAfter": {
         "SemanticMediaWiki": "*"
     },
-    
+
     "MessagesDirs": {
         "FieldPermissions": [
             "i18n"
@@ -37,17 +37,29 @@
     "ExtensionFunctions": [
         "FieldPermissions\\Hooks::onExtensionFunction"
     ],
-    "Hooks": {
-        "SMW::Settings::BeforeInitializationComplete": "FieldPermissions\\Hooks::onSMWSettingsBeforeInitializationComplete",
-        "SMW::Service::AfterInitialization": "FieldPermissions\\Hooks::onSMWServiceAfterInitialization",
-        "SMW::ResultPrinter::Register": "FieldPermissions\\Hooks::onSMWRegisterResultPrinters",
-        "BeforePageDisplay": "FieldPermissions\\Hooks::onBeforePageDisplay",
-        "PageRenderingHash": "FieldPermissions\\Hooks::onPageRenderingHash",
-        "LoadExtensionSchemaUpdates": "FieldPermissions\\Hooks::onLoadExtensionSchemaUpdates",
-        "GetUserPermissionsErrors": "FieldPermissions\\Hooks::onGetUserPermissionsErrors",
-        "MultiContentSave": "FieldPermissions\\Hooks::onMultiContentSave",
 
-        "SMW::Factbox::BeforeContentGeneration": "FieldPermissions\\Hooks::onSMWFactboxBeforeContentGeneration"
+    "Hooks": {
+
+        "SMW::Settings::BeforeInitializationComplete": 
+            "FieldPermissions\\Hooks::onSMWSettingsBeforeInitializationComplete",
+
+        "SMW::Factbox::BeforeContentGeneration": 
+            "FieldPermissions\\Hooks::onSMWFactboxBeforeContentGeneration",
+
+        "BeforePageDisplay": 
+            "FieldPermissions\\Hooks::onBeforePageDisplay",
+
+        "PageRenderingHash":
+            "FieldPermissions\\Hooks::onPageRenderingHash",
+
+        "LoadExtensionSchemaUpdates":
+            "FieldPermissions\\Hooks::onLoadExtensionSchemaUpdates",
+
+        "GetUserPermissionsErrors": 
+            "FieldPermissions\\Hooks::onGetUserPermissionsErrors",
+
+        "MultiContentSave": 
+            "FieldPermissions\\Hooks::onMultiContentSave"
     },
 
     "ServiceWiringFiles": {

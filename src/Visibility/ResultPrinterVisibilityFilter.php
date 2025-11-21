@@ -6,6 +6,30 @@ use MediaWiki\User\UserIdentity;
 use SMW\DIProperty;
 use SMW\PrintRequest;
 
+/**
+ * ResultPrinterVisibilityFilter
+ *
+ * This class enforces per-property visibility rules during SMW result printing.
+ *
+ * It performs two levels of filtering:
+ *
+ *   1. Column-level filtering  
+ *      Determines whether an entire print request (column) should appear.
+ *      Used by PrinterFilterTrait before printing results.
+ *
+ *   2. Value-level filtering  
+ *      Removes individual data values when a property is visible but a
+ *      specific data item should not be shown (used rarely).
+ *
+ * Both functions must operate across multiple SMW versions, which have
+ * *inconsistent* PrintRequest APIs:
+ *
+ *   - Some versions require getDataItem()
+ *   - Some wrap everything in DataValue objects and require getData()->getDataItem()
+ *   - Namespaces vary: SMW\PrintRequest vs SMW\Query\PrintRequest
+ *
+ * This class handles all variations defensively and safely.
+ */
 class ResultPrinterVisibilityFilter {
 
     private VisibilityResolver $resolver;
@@ -15,139 +39,190 @@ class ResultPrinterVisibilityFilter {
         VisibilityResolver $resolver,
         PermissionEvaluator $evaluator
     ) {
-        $this->resolver = $resolver;
+        $this->resolver  = $resolver;
         $this->evaluator = $evaluator;
     }
 
+    /* ----------------------------------------------------------------------
+     * 1. Filter column-level PrintRequests (preferred for Tier 2 approach)
+     * -------------------------------------------------------------------- */
+
     /**
-     * Filter an array of SMWDataValue objects based on visibility permissions.
+     * Determine whether a print request (SMW table column) is visible.
      *
-     * @param mixed $printRequest The print request associated with the data.
-     * @param array $dataValues Array of SMWDataValue objects.
-     * @param UserIdentity $user The user viewing the data.
-     * @return array Filtered array of SMWDataValue objects.
+     * SMW print requests represent result columns. If a column is tied to a
+     * restricted property, it MUST be removed *before* rendering.
+     *
+     * @param mixed $printRequest  SMW PrintRequest (multiple versions supported)
+     * @param UserIdentity $user
+     * @return bool  True if the column should be shown.
+     */
+    public function isPrintRequestVisible( $printRequest, UserIdentity $user ): bool {
+
+        /* ----------------------------------------------------------
+         * Step 1: Validate PrintRequest type
+         * -------------------------------------------------------- */
+        if (
+            !$printRequest instanceof PrintRequest &&
+            !$printRequest instanceof \SMW\Query\PrintRequest
+        ) {
+            wfDebugLog(
+                'fieldpermissions',
+                "RPVF::isPrintRequestVisible: Unknown print request type (" .
+                (is_object($printRequest) ? get_class($printRequest) : gettype($printRequest)) .
+                "), default ALLOWED"
+            );
+
+            // Safe default: allow. (Safer than hiding unknown column types.)
+            return true;
+        }
+
+        /* ----------------------------------------------------------
+         * Step 2: Obtain DataItem (property) from the PrintRequest
+         * -------------------------------------------------------- */
+
+        $dataItem = $this->extractDataItemFromPrintRequest( $printRequest );
+
+        if ( !$dataItem ) {
+            wfDebugLog(
+                'fieldpermissions',
+                "RPVF::isPrintRequestVisible: No dataItem extracted → ALLOW"
+            );
+            return true;
+        }
+
+        /* Non-property printouts (e.g., category, title, etc.) */
+        if ( !$dataItem instanceof DIProperty ) {
+            wfDebugLog(
+                'fieldpermissions',
+                "RPVF::isPrintRequestVisible: DataItem is not DIProperty → ALLOW"
+            );
+            return true;
+        }
+
+        /* ----------------------------------------------------------
+         * Step 3: Resolve property restrictions
+         * -------------------------------------------------------- */
+        $propKey   = $dataItem->getKey();
+        $propLevel = $this->resolver->getPropertyLevel( $dataItem );
+        $visibleTo = $this->resolver->getPropertyVisibleTo( $dataItem );
+
+        wfDebugLog(
+            'fieldpermissions',
+            "RPVF::isPrintRequestVisible: Property $propKey, level=$propLevel, visibleTo=[" .
+            implode(', ', $visibleTo) . "]"
+        );
+
+        /* Public property */
+        if ( $propLevel === 0 && empty( $visibleTo ) ) {
+            return true;
+        }
+
+        /* ----------------------------------------------------------
+         * Step 4: Evaluate user access
+         * -------------------------------------------------------- */
+        $allowed = $this->evaluator->mayViewProperty( $user, $propLevel, $visibleTo );
+
+        wfDebugLog(
+            'fieldpermissions',
+            "RPVF::isPrintRequestVisible: " .
+            ($allowed ? "ALLOW" : "BLOCK") .
+            " user={$user->getName()} property=$propKey"
+        );
+
+        return $allowed;
+    }
+
+
+    /* ----------------------------------------------------------------------
+     * 2. Optional: Value-level filtering (rarely needed)
+     * -------------------------------------------------------------------- */
+
+    /**
+     * Filter the actual SMWDataValue array for a single column.
+     * Used if column is visible but specific values should be rejected.
+     *
+     * With Tier 2, full-column filtering is preferred, so this normally
+     * returns either:
+     *   - unchanged values (allowed)
+     *   - empty array     (blocked)
+     *
+     * @param mixed $printRequest
+     * @param array $dataValues  Array of SMWDataValue objects
+     * @param UserIdentity $user
+     * @return array Filtered values
      */
     public function filterDataValues( $printRequest, array $dataValues, UserIdentity $user ): array {
-        // If there are no values, nothing to filter
+
         if ( empty( $dataValues ) ) {
             return [];
         }
 
-        // Ensure we have a valid PrintRequest object
-        if ( !$printRequest instanceof PrintRequest && !$printRequest instanceof \SMW\Query\PrintRequest ) {
-             return $dataValues;
+        if (
+            !$printRequest instanceof PrintRequest &&
+            !$printRequest instanceof \SMW\Query\PrintRequest
+        ) {
+            return $dataValues; // Unknown → allow
         }
 
-        // Check if method exists
-        if ( method_exists( $printRequest, 'getDataItem' ) ) {
-            $dataItem = $printRequest->getDataItem();
-        } elseif ( method_exists( $printRequest, 'getData' ) ) {
-            $data = $printRequest->getData();
-            // getData() returns a DataValue, we need to extract the DataItem
-            if ( $data && method_exists( $data, 'getDataItem' ) ) {
-                $dataItem = $data->getDataItem();
-            } else {
-                $dataItem = null;
-            }
-        } else {
-            return $dataValues;
-        }
+        $dataItem = $this->extractDataItemFromPrintRequest( $printRequest );
 
-        // If the column is not based on a property (e.g. category, modification date), usually allow it.
         if ( !$dataItem instanceof DIProperty ) {
-            return $dataValues;
+            return $dataValues; // Non-property → allow
         }
 
-        // Resolve visibility level and allowed groups for the property
-        $level = $this->resolver->getPropertyLevel( $dataItem );
+        $propLevel = $this->resolver->getPropertyLevel( $dataItem );
         $visibleTo = $this->resolver->getPropertyVisibleTo( $dataItem );
 
-        // Public property?
-        if ( $level === 0 && empty( $visibleTo ) ) {
+        if ( $propLevel === 0 && empty( $visibleTo ) ) {
+            return $dataValues; // Public
+        }
+
+        if ( $this->evaluator->mayViewProperty( $user, $propLevel, $visibleTo ) ) {
             return $dataValues;
         }
 
-        // Check permissions
-        if ( $this->evaluator->mayViewProperty( $user, $level, $visibleTo ) ) {
-            wfDebugLog( 'fieldpermissions', "ResultPrinterVisibilityFilter: ALLOW property " . $dataItem->getKey() . " for user " . $user->getName() );
-            return $dataValues;
-        }
-
-        // Blocked
-        wfDebugLog( 'fieldpermissions', "ResultPrinterVisibilityFilter: BLOCK property " . $dataItem->getKey() . " for user " . $user->getName() );
+        // If blocked, remove all values
         return [];
     }
 
+
+    /* ----------------------------------------------------------------------
+     * INTERNAL HELPERS
+     * -------------------------------------------------------------------- */
+
     /**
-     * Check if a print request (column) is visible to a user.
+     * Extract a DIProperty (or other DI object) from a PrintRequest.
      *
-     * CRITICAL: Defensive API compatibility for SMW version differences.
-     * 
-     * SMW uses different class names across versions:
-     * - SMW\PrintRequest (older) vs SMW\Query\PrintRequest (newer)
-     * - Some versions have getDataItem() directly, others require getData()->getDataItem()
-     * - getData() returns PropertyValue (DataValue) which wraps the DIProperty
-     * 
-     * This defensive approach handles all variations and prevents fatal errors.
-     * The type checking and method_exists() calls were essential for compatibility.
+     * SMW versions differ:
+     *   - new: getDataItem()
+     *   - old: getData() → DataValue → getDataItem()
      *
      * @param mixed $printRequest
-     * @param UserIdentity $user
-     * @return bool
+     * @return mixed|null  DataItem or null if unavailable
      */
-    public function isPrintRequestVisible( $printRequest, UserIdentity $user ): bool {
-        // CRITICAL: Accept both PrintRequest namespaces (SMW version compatibility)
-        if ( !$printRequest instanceof PrintRequest && !$printRequest instanceof \SMW\Query\PrintRequest ) {
-             wfDebugLog( 'fieldpermissions', "ResultPrinterVisibilityFilter: Invalid print request type: " . (is_object($printRequest) ? get_class($printRequest) : gettype($printRequest)) );
-             return true; // Safe default or false? SMW uses mixed namespaces sometimes.
-        }
+    private function extractDataItemFromPrintRequest( $printRequest ) {
 
-        // CRITICAL: Defensive method checking - SMW versions differ in API
-        // Try getDataItem() first (direct access), fallback to getData()->getDataItem() (wrapped)
+        // Newer SMW versions
         if ( method_exists( $printRequest, 'getDataItem' ) ) {
-            $dataItem = $printRequest->getDataItem();
-            wfDebugLog( 'fieldpermissions', "ResultPrinterVisibilityFilter: Got dataItem via getDataItem(): " . ( $dataItem ? get_class($dataItem) : 'null' ) );
-        } elseif ( method_exists( $printRequest, 'getData' ) ) {
-             $data = $printRequest->getData();
-             wfDebugLog( 'fieldpermissions', "ResultPrinterVisibilityFilter: Got data via getData(): " . ( $data ? get_class($data) : 'null' ) );
-             
-             // getData() returns a DataValue (PropertyValue), we need to extract the DataItem
-             if ( $data && method_exists( $data, 'getDataItem' ) ) {
-                 $dataItem = $data->getDataItem();
-                 wfDebugLog( 'fieldpermissions', "ResultPrinterVisibilityFilter: Extracted dataItem from DataValue: " . ( $dataItem ? get_class($dataItem) : 'null' ) );
-             } else {
-                 $dataItem = null;
-             }
-        } else {
-            wfDebugLog( 'fieldpermissions', "ResultPrinterVisibilityFilter: PrintRequest class " . get_class($printRequest) . " missing getDataItem(). Methods: " . implode(', ', get_class_methods($printRequest)) );
-            return true;
+            return $printRequest->getDataItem();
         }
 
-        // Non-property columns are generally visible
-        if ( !$dataItem instanceof DIProperty ) {
-            wfDebugLog( 'fieldpermissions', "ResultPrinterVisibilityFilter: DataItem is not a DIProperty, allowing. Type: " . ( $dataItem ? get_class($dataItem) : 'null' ) );
-            return true;
+        // Older SMW versions
+        if ( method_exists( $printRequest, 'getData' ) ) {
+            $data = $printRequest->getData();
+
+            if ( $data && method_exists( $data, 'getDataItem' ) ) {
+                return $data->getDataItem();
+            }
         }
 
-        wfDebugLog( 'fieldpermissions', "ResultPrinterVisibilityFilter: Processing property: " . $dataItem->getKey() );
+        wfDebugLog(
+            'fieldpermissions',
+            "RPVF::extractDataItemFromPrintRequest: Unable to extract dataItem from " .
+            get_class($printRequest)
+        );
 
-        $level = $this->resolver->getPropertyLevel( $dataItem );
-        $visibleTo = $this->resolver->getPropertyVisibleTo( $dataItem );
-
-        // Public
-        if ( $level === 0 && empty( $visibleTo ) ) {
-            wfDebugLog( 'fieldpermissions', "ResultPrinterVisibilityFilter: PUBLIC property " . $dataItem->getKey() . " (allowed)" );
-            return true;
-        }
-
-        $allowed = $this->evaluator->mayViewProperty( $user, $level, $visibleTo );
-        
-        if ( !$allowed ) {
-            wfDebugLog( 'fieldpermissions', "ResultPrinterVisibilityFilter: BLOCK property " . $dataItem->getKey() . " for user " . $user->getName() );
-        } else {
-            wfDebugLog( 'fieldpermissions', "ResultPrinterVisibilityFilter: ALLOW property " . $dataItem->getKey() . " for user " . $user->getName() );
-        }
-
-        return $allowed;
+        return null;
     }
 }

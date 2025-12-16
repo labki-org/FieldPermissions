@@ -1,95 +1,216 @@
-# FieldPermissions MediaWiki Extension
+# FieldPermissions - Fine-Grained Field Visibility for MediaWiki + Semantic MediaWiki
 
-FieldPermissions provides fine-grained, field-level access control in MediaWiki using Semantic MediaWiki (SMW) properties. It enables you to restrict field visibility based on permission levels or explicit user groups, filtering data at the source.
+FieldPermissions provides property-level access control in MediaWiki using Semantic MediaWiki (SMW).
 
-**Compatible with SMW 6.x** using a secure "Tier 2" architecture (ResultPrinter Overrides).
+It allows you to restrict the visibility of individual SMW properties based on:
 
-## Features
+- Visibility Levels (numeric thresholds you define)
+- User Groups (explicit allow-lists)
 
-- **Semantic Configuration**: Configure visibility using standard SMW properties (`Has visibility level`, `Visible to`) on property pages.
-- **Database-Backed**: Visibility levels and group mappings are stored in the database and managed via a Special Page.
-- **Output Filtering**: Automatically filters SMW query results (#ask, API, JSON, CSV, etc.) by overriding ResultPrinters to remove restricted columns before rendering.
-- **Secure by Design**: Filters data at the rendering stage, ensuring that restricted properties are never requested or displayed.
-- **Factbox Protection**: Filters properties displayed in the Factbox at the bottom of pages.
+The extension filters data at the ResultPrinter level, securing all SMW query outputs (table, list, JSON, CSV, template, etc.).
+
+Fully compatible with MediaWiki 1.39+ and SMW 6.x.
+
+## Key Features
+
+### Visibility Defined in SMW
+
+Restrictions are declared using Semantic MediaWiki properties on `Property:` pages:
+
+- `Has visibility level`
+- `Visible to`
+
+### Database-Backed Configuration
+
+A management UI (`Special:ManageVisibility`) allows administrators to:
+
+- Define visibility levels (e.g., Public = 0, Internal = 5, PI = 10)
+- Map user groups to max allowed level
+
+### Tier-2 Visibility Filtering
+
+All SMW result printers (table, list, json, csv, etc.) are replaced with custom `Fp*` printers that:
+
+- Inspect each `PrintRequest` (column)
+- Resolve its visibility metadata
+- Remove it if the viewer lacks access
+
+This prevents restricted fields from being fetched or displayed.
+
+### Factbox Filtering
+
+Semantic Factboxes suppress restricted properties before rendering.
+
+### Edit Enforcement
+
+A `VisibilityEditGuard` ensures that only authorized users can:
+
+- Edit visibility definition pages (`Visibility:*`)
+- Edit SMW property pages with visibility controls
+- Add/modify visibility annotations inside page content
+
+### Secure Caching
+
+Parser cache varies by user visibility profile, preventing privilege leakage.
 
 ## Installation
 
-1. Clone or download this extension into your MediaWiki `extensions/` directory:
+1. Clone into extensions directory
+
    ```bash
    cd /path/to/mediawiki/extensions
    git clone https://github.com/your-repo/FieldPermissions.git
    ```
 
-2. Add the following to your `LocalSettings.php`:
+2. Enable the extension
+
    ```php
    wfLoadExtension( 'FieldPermissions' );
    ```
 
-3. Run the update script to create database tables:
+3. Run schema updates
+
    ```bash
    php maintenance/update.php
    ```
 
-## Usage
+## Usage Guide
 
-### 1. Define Visibility Levels
+### 1. Create Visibility Levels
 
-Go to `Special:ManageVisibility` (requires `fp-manage-visibility` right, default for sysops).
+Go to:
 
-Create levels with numeric values. Higher numbers = more restrictive.
+`Special:ManageVisibility`
+
+A "visibility level" has:
+
+- Name (e.g., Public, Private, PIOnly)
+- Numeric Level (higher = more private)
+- Optional Page Title (e.g., `Visibility:PIOnly`)
+
 Example:
-- **Public**: 0
-- **Internal**: 10
-- **Private**: 20
 
-### 2. Assign Levels to User Groups
+| Name     | Numeric |
+| -------- | ------- |
+| Public   | 0       |
+| Internal | 5       |
+| Private  | 10      |
 
-In `Special:ManageVisibility`, map user groups to their maximum allowed visibility level.
-Example:
-- **user**: Public (0)
-- **lab_member**: Internal (10)
-- **pi**: Private (20)
+### 2. Map User Groups → Max Level
 
-### 3. Protect Properties
+Still in `Special:ManageVisibility`:
 
-On any Property page (e.g., `Property:Salary`), add the following semantic annotations:
+| User Group | Max Level |
+| ---------- | --------- |
+| user       | 0 (Public) |
+| lab_member | 5 (Internal) |
+| pi         | 10 (Private) |
 
-**To restrict by level:**
+### 3. Protect SMW Properties
+
+On a `Property:` page:
+
+**Restrict by level**
+
 ```wikitext
 [[Has visibility level::Visibility:Private]]
 ```
-(Assuming you have a page `Visibility:Private` representing the level, or just use the name if configured).
 
-**To restrict by specific group:**
+You may reference visibility levels by:
+
+- Page title (`Visibility:Private`)
+- Level name (`Private`)
+
+**Restrict by explicit user group(s)**
+
 ```wikitext
 [[Visible to::sysop]]
-[[Visible to::hr_manager]]
+[[Visible to::lab_manager]]
 ```
 
-### 4. Display Data
+Group names are normalized case-insensitively.
 
-Use standard SMW queries. Data will be automatically filtered based on the viewing user's permissions.
+### 4. Queries Automatically Filtered
+
+Use SMW queries normally:
 
 ```wikitext
 {{#ask: [[Category:Employee]]
- |?Salary
  |?Email
+ |?Salary
+ |?Performance Score
 }}
 ```
 
-If a user does not have permission to see `Salary`, that column/field will be empty or removed.
+If the user cannot view `Salary` or `Performance Score`, those columns simply do not appear.
+
+All formats are filtered:
+
+- table
+- list
+- template
+- json
+- csv
+- dsv
+- default
+
+### 5. Factbox Filtering
+
+The Factbox at the bottom of a page also omits restricted properties automatically.
+
+## How It Works (Architecture)
+
+### Tier-2 Printer Override
+
+SMW builds a registry of printer classes using the setting:
+
+`$smwgResultFormats`
+
+FieldPermissions overrides this mapping early:
+
+- During `SMW::Settings::BeforeInitializationComplete`
+- Reinforced in `SetupAfterCache`
+- Optionally enforced again via `ExtensionFunctions`
+
+This guarantees that the SMW factory instantiates:
+
+- `FpTableResultPrinter`
+- `FpListResultPrinter`
+- `FpJsonResultPrinter`
+- `FpCsvResultPrinter`
+- `FpTemplateResultPrinter`
+
+Each custom printer:
+
+- Identifies the property associated with each `PrintRequest`
+- Checks `Has visibility level` and `Visible to` metadata
+- Consults the viewer's visibility profile
+- Removes unauthorized fields before SMW fetches or renders them
+
+### Parser Cache Safety
+
+MediaWiki normally caches pages without considering user permissions.
+
+FieldPermissions injects:
+
+- viewer max visibility level
+- viewer group list
+
+into the page rendering hash, ensuring:
+
+- Admin cache ≠ Lab Member cache ≠ Public cache
+
+### Edit-Time Enforcement
+
+The edit guard prevents unauthorized modification of visibility rules by restricting:
+
+- Edits to `Visibility:*` pages
+- Edits to protected `Property:` pages
+- Adding/changing `[[Has visibility level::...]]` or `[[Visible to::...]]` in content
 
 ## Configuration
 
-See [docs/Configuration.md](docs/Configuration.md) for detailed configuration guide.
-
-## Architecture
-
-This extension uses a **Tier 2** filtering approach for SMW 6.x:
-1. **Interception**: Hooks into `SMW::ResultPrinter::Register` to replace standard printers.
-2. **Overrides**: Custom `Fp*` printers (Table, List, JSON, etc.) extend standard SMW printers.
-3. **Filtering**: Inside the printer, the extension inspects the `QueryResult` and removes any `PrintRequest` (column) that the user is not authorized to view.
-4. **Result**: SMW skips fetching and rendering data for the removed columns, ensuring security.
+Additional configuration docs can be placed at `docs/Configuration.md`.
 
 ## License
 

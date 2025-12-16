@@ -1,50 +1,101 @@
 # Configuration Guide
 
-FieldPermissions is configured primarily through the database via the `Special:ManageVisibility` page.
+FieldPermissions is configured primarily through database-backed settings that you manage via the `Special:ManageVisibility` page.
 
-## Managing Visibility Levels
+Visibility behavior is enforced automatically across all SMW query outputs using custom `ResultPrinters`.
 
-1. Navigate to `Special:ManageVisibility`.
-2. Under "Visibility Levels", you can add new levels.
-   - **Name**: A unique name for the level (e.g., `public`, `internal`, `confidential`).
-   - **Numeric Level**: An integer value.
-     - `0`: Usually Public.
-     - Higher numbers indicate higher restriction.
-   - **Page Title**: Optional. Link to a wiki page that describes this level (e.g., `Visibility:Internal`). This helps in using semantic properties like `[[Has visibility level::Visibility:Internal]]`.
+## 1. Managing Visibility Levels
 
-## Managing Group Permissions
+Go to `Special:ManageVisibility`. Under **Visibility Levels**, create new levels with:
 
-1. Navigate to `Special:ManageVisibility`.
-2. Under "Group Permissions", you can assign a Maximum Visibility Level to a user group.
-3. Users in that group will be able to see any property with a visibility level less than or equal to their group's max level.
-4. If a user is in multiple groups, their effective level is the maximum of all their groups.
+**Name**
 
-## Protecting Properties
+- Unique identifier (e.g., `public`, `internal`, `private`)
+- Letters, numbers, and underscores recommended
 
-To protect a property, edit its page (e.g., `Property:Salary`) and add semantic annotations.
+**Numeric Level**
 
-### Has visibility level
+- Number indicating how restrictive the level is
+- `0` → Public; higher numbers → more restricted
+- Example: `0 = Public`, `10 = LabMembers`, `20 = PIOnly`
 
-Sets the minimum numeric level required to view values of this property.
+**Page Title (optional)**
+
+- Link to a descriptive wiki page (e.g., `Visibility:Internal`)
+- Enables property annotations such as `[[Has visibility level::Visibility:Internal]]`
+- System resolves the linked page or level name to the configured numeric level
+
+## 2. Managing Group Visibility Permissions
+
+Under **Group Permissions** in `Special:ManageVisibility`, map user groups to their maximum visibility level.
+
+Example:
+
+| Group       | Max Level      |
+| ----------- | -------------- |
+| `user`      | `0 (Public)`   |
+| `lab_member`| `10 (Internal)`|
+| `pi`        | `20 (Private)` |
+
+**How it works**
+
+- Users inherit all of their groups’ levels.
+- Effective max level = highest level among all groups.
+- This max level is used to determine whether they may view a property.
+
+## 3. Protecting SMW Properties
+
+Edit the property page (e.g., `Property:Salary`) and add one or both annotations:
+
+**A. Restrict by Level**
 
 ```wikitext
 [[Has visibility level::Visibility:Private]]
 ```
 
-The system resolves `Visibility:Private` to its configured numeric level. You can also use the level name if you have a property setup for it, but linking to a page is recommended for SMW clarity.
+- FieldPermissions resolves the linked page (`Visibility:Private`) or the raw identifier (`Private`) to the configured numeric level.
+- Example: if `Private = 20`, only users with max level ≥ 20 can see `Salary`.
 
-### Visible to
-
-Explicitly allows a specific user group to see the property, regardless of level.
+**B. Restrict by Specific Group**
 
 ```wikitext
 [[Visible to::sysop]]
+[[Visible to::hr_manager]]
 ```
 
-## Edit Protection
+- Allows specific groups to see the property regardless of numeric levels.
+- If any allowed group matches the user’s groups → property is visible.
+- Otherwise, numeric level rules apply.
 
-To prevent users from bypassing permissions:
-- Only users with `fp-manage-visibility` right (default: sysops) can edit pages in the `Visibility:` namespace (if used).
-- Only users with `fp-manage-visibility` right can edit Property pages that have active visibility restrictions.
-- Users cannot add `[[Has visibility level::...]]` or `[[Visible to::...]]` to any page unless they have the management right.
+Use this for allow-lists like “Only HR sees phone numbers” or “Only PIs see grant budgets.”
+
+## 4. Edit Protection Rules
+
+To prevent privilege escalation, users without `fp-manage-visibility` may **not**:
+
+- Edit `Visibility:` pages (or any page used for level metadata)
+- Edit restricted `Property:` pages (those with `Has visibility level` or `Visible to`)
+- Insert or modify `[[Has visibility level::...]]` or `[[Visible to::...]]` anywhere
+
+Enforced via `GetUserPermissionsErrors` and `MultiContentSave`.
+
+## 5. How Visibility is Applied
+
+For each property in an SMW query, visibility is granted if:
+
+- The user belongs to one of the property’s `Visible to` groups **or**
+- The user’s max visibility level ≥ the property’s level
+
+Otherwise:
+
+- Columns are removed from tables/lists/templates
+- Keys are removed from JSON/CSV exports
+- Properties are removed from Factbox
+
+Filtering occurs in:
+
+- Custom `Fp*` ResultPrinters (table, list, template, JSON, CSV, etc.)
+- Factbox filtering via `SMW::Factbox::BeforeContentGeneration`
+
+Result: sensitive data is never fetched or rendered for unauthorized users.
 

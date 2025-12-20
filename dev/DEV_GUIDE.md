@@ -1,42 +1,48 @@
 # FieldPermissions Development Guide
 
-This directory contains tools for running FieldPermissions inside a full MediaWiki environment and executing the extension's PHPUnit test suite.
+This directory contains tools for running FieldPermissions inside a full MediaWiki environment (using `labki-platform`) and executing the extension's PHPUnit test suite.
 
 ## Run MediaWiki + FieldPermissions
 
-From the `/dev/` directory:
+The environment is defined in `docker-compose.yml` in the root of the extension.
 
-First, make the script executable:
+### Using the Helper Script
 
-```bash
-chmod +x setup_mw_test_env.sh
-```
-
-Then run it:
+To reset and start the environment fresh (recommended for first run):
 
 ```bash
-./setup_mw_test_env.sh
+# From the extension root
+./tests/scripts/reinstall_test_env.sh
 ```
 
 This script will:
+- Stop any running containers
+- Build and start the environment using `docker-compose.yml`
+- Wait for the database to initialize
+- Rebuild the localisation cache
 
-- Clone MediaWiki (if needed)
-- Start the MediaWiki Docker environment
-- Mount the FieldPermissions extension into `/w/extensions/FieldPermissions`
-- Update MediaWiki and enable the extension
+### Using Docker Compose Directly
 
-Once complete, visit:
+You can also manage the environment manually:
+
+```bash
+docker compose up -d
+```
+
+## Accessing the Wiki
+
+Once running, visit:
 
 ```
-http://localhost:8080/w
+http://localhost:8888
 ```
 
 ## Run PHPUnit Tests
 
-Inside the running MediaWiki container:
+Inside the running MediaWiki container (service name `wiki`):
 
 ```bash
-docker compose exec -T mediawiki php tests/phpunit/phpunit.php \
+docker compose exec -T wiki php tests/phpunit/phpunit.php \
   --testsuite extensions \
   --filter FieldPermissions
 ```
@@ -44,7 +50,7 @@ docker compose exec -T mediawiki php tests/phpunit/phpunit.php \
 Or run the full extension suite:
 
 ```bash
-docker compose exec mediawiki bash -lc 'composer phpunit:entrypoint -- extensions/FieldPermissions/tests/phpunit'
+docker compose exec wiki bash -lc 'composer phpunit:entrypoint -- extensions/FieldPermissions/tests/phpunit'
 ```
 
 Tests live in:
@@ -60,5 +66,3 @@ To remove the environment:
 ```bash
 docker compose down -v
 ```
-
-To fully reset the MediaWiki checkout, delete the `mediawiki-test` directory and re-run `setup_mw_test_env.sh`.

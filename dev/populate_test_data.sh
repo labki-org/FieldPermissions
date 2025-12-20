@@ -6,23 +6,12 @@ set -euo pipefail
 # Creates a realistic test environment with varied properties, employees, and queries
 #
 
-get_cache_dir() {
-    case "$(uname -s)" in
-        Darwin*) echo "$HOME/Library/Caches/propertypermissions" ;;
-        MINGW*|MSYS*|CYGWIN*)
-            local appdata="${LOCALAPPDATA:-$HOME/AppData/Local}"
-            echo "$appdata/propertypermissions"
-            ;;
-        *) echo "${XDG_CACHE_HOME:-$HOME/.cache}/propertypermissions" ;;
-    esac
-}
-
 # ---------------- CONFIG ----------------
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CACHE_BASE="$(get_cache_dir)"
-MW_DIR="${MW_DIR:-$CACHE_BASE/mediawiki-PropertyPermissions-test}"
-CONTAINER_WIKI="/var/www/html/w"
+# For labki-platform, we assume we run from the repo root or can find docker-compose.yml there
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+CONTAINER_WIKI="/var/www/html"
 MW_ADMIN_USER="${MW_ADMIN_USER:-Admin}"
 MW_PORT="${MW_PORT:-8888}"
 COMMON_PASSWORD="TestPass123!"
@@ -34,7 +23,7 @@ create_page() {
     local summary="Created by populate_test_data.sh"
     
     echo "  Creating page: $title"
-    docker compose exec -T mediawiki php "$CONTAINER_WIKI/maintenance/edit.php" \
+    docker compose exec -T wiki php "$CONTAINER_WIKI/maintenance/edit.php" \
         --user "$MW_ADMIN_USER" \
         --summary "$summary" \
         --no-rc \
@@ -47,7 +36,7 @@ create_user() {
     local groups="${3:-}"
 
     echo "  Creating user: $username"
-    docker compose exec -T mediawiki php "$CONTAINER_WIKI/maintenance/createAndPromote.php" \
+    docker compose exec -T wiki php "$CONTAINER_WIKI/maintenance/createAndPromote.php" \
         --force \
         "$username" \
         "$password"
@@ -58,7 +47,7 @@ create_user() {
         for group in "${GROUP_ARRAY[@]}"; do
             group=$(echo "$group" | xargs)
             if [ -n "$group" ]; then
-                docker compose exec -T mediawiki php "$CONTAINER_WIKI/maintenance/createAndPromote.php" \
+                docker compose exec -T wiki php "$CONTAINER_WIKI/maintenance/createAndPromote.php" \
                     --force \
                     --custom-groups "$group" \
                     "$username" "$password"
@@ -74,15 +63,10 @@ echo "PropertyPermissions Test Data Population"
 echo "=========================================="
 echo ""
 
-if [ ! -d "$MW_DIR" ]; then
-    echo "ERROR: MediaWiki directory not found. Please run setup_mw_test_env.sh first."
-    exit 1
-fi
+cd "$REPO_ROOT"
 
-cd "$MW_DIR"
-
-if ! docker compose ps | grep -q "mediawiki.*Up"; then
-    echo "ERROR: MediaWiki containers are not running. Please start them first."
+if ! docker compose ps --services --filter "status=running" | grep -q "wiki"; then
+    echo "ERROR: 'wiki' container is not running. Please start it with 'docker compose up -d'."
     exit 1
 fi
 
@@ -91,9 +75,9 @@ fi
 # ============================================
 echo ""
 echo "==> [1/7] Seeding PropertyPermissions database tables..."
-docker compose cp "$SCRIPT_DIR/../maintenance/seed_db.php" mediawiki:"$CONTAINER_WIKI/extensions/PropertyPermissions/maintenance/seed_db.php" 2>/dev/null || \
-docker compose cp "$SCRIPT_DIR/seed_db.php" mediawiki:"$CONTAINER_WIKI/extensions/PropertyPermissions/maintenance/seed_db.php" 2>/dev/null || true
-docker compose exec -T mediawiki php "$CONTAINER_WIKI/extensions/PropertyPermissions/maintenance/seed_db.php"
+# In labki-platform, the extension is mounted at /mw-user-extensions/PropertyPermissions
+# Since it is a volume mount, we don't need to copy files.
+docker compose exec -T wiki env MW_INSTALL_PATH="$CONTAINER_WIKI" php "/mw-user-extensions/PropertyPermissions/maintenance/seed_db.php"
 
 # ============================================
 # 2. CREATE METADATA PROPERTIES
@@ -473,7 +457,7 @@ create_user "AdminUser" "$COMMON_PASSWORD" "sysop"
 # ============================================
 echo ""
 echo "==> Rebuilding SMW Data..."
-docker compose exec -T mediawiki php "$CONTAINER_WIKI/extensions/SemanticMediaWiki/maintenance/rebuildData.php" || echo "SMW rebuild warning (can be ignored if first run)"
+docker compose exec -T wiki php "$CONTAINER_WIKI/extensions/SemanticMediaWiki/maintenance/rebuildData.php" || echo "SMW rebuild warning (can be ignored if first run)"
 
 # ============================================
 # COMPREHENSIVE TESTING GUIDE

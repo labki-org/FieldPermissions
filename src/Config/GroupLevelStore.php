@@ -2,8 +2,8 @@
 
 namespace FieldPermissions\Config;
 
-use Wikimedia\Rdbms\ILoadBalancer;
 use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * GroupLevelStore
@@ -52,8 +52,8 @@ class GroupLevelStore {
 	 * Example:
 	 *   getGroupMaxLevel( 'sysop' )  → 5
 	 *
-	 * @param string $groupName  MediaWiki group name (e.g., "sysop", "user")
-	 * @return int|null          Numeric max level, or null if no entry exists
+	 * @param string $groupName MediaWiki group name (e.g., "sysop", "user")
+	 * @return int|null Numeric max level, or null if no entry exists
 	 */
 	public function getGroupMaxLevel( string $groupName ): ?int {
 		$dbr = $this->getReplicaDB();
@@ -115,10 +115,11 @@ class GroupLevelStore {
 
 		$dbw->replace(
 			'fp_group_levels',
-			[ 'gl_group_name' ], // unique key
+			// unique key
+			[ 'gl_group_name' ],
 			[
 				'gl_group_name' => $groupName,
-				'gl_max_level'  => $maxLevel
+				'gl_max_level' => $maxLevel
 			],
 			__METHOD__
 		);
@@ -149,4 +150,3 @@ class GroupLevelStore {
 		);
 	}
 }
-

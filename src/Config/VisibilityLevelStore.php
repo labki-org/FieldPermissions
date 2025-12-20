@@ -2,9 +2,9 @@
 
 namespace FieldPermissions\Config;
 
-use Wikimedia\Rdbms\ILoadBalancer;
-use Wikimedia\Rdbms\IDatabase;
 use FieldPermissions\Model\VisibilityLevel;
+use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * VisibilityLevelStore
@@ -80,8 +80,8 @@ class VisibilityLevelStore {
 	/**
 	 * Insert a new visibility level.
 	 *
-	 * @param string      $name
-	 * @param int         $numericLevel
+	 * @param string $name
+	 * @param int $numericLevel
 	 * @param string|null $pageTitle
 	 */
 	public function addLevel( string $name, int $numericLevel, ?string $pageTitle = null ): void {
@@ -106,9 +106,9 @@ class VisibilityLevelStore {
 	/**
 	 * Update an existing visibility level.
 	 *
-	 * @param int         $id
-	 * @param string      $name
-	 * @param int         $numericLevel
+	 * @param int $id
+	 * @param string $name
+	 * @param int $numericLevel
 	 * @param string|null $pageTitle
 	 */
 	public function updateLevel( int $id, string $name, int $numericLevel, ?string $pageTitle = null ): void {
@@ -179,4 +179,3 @@ class VisibilityLevelStore {
 		);
 	}
 }
-

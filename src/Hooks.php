@@ -2,14 +2,10 @@
 
 namespace FieldPermissions;
 
-use FieldPermissions\Protection\VisibilityEditGuard;
-use FieldPermissions\Visibility\SmwQueryFilter;
-
 use MediaWiki\Installer\DatabaseUpdater;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Revision\RenderedRevision;
 use MediaWiki\User\UserIdentity;
-
 use SMW\DIWikiPage;
 
 /**
@@ -37,8 +33,7 @@ use SMW\DIWikiPage;
  *   - enforce edit restrictions and content validation
  *   - install visibility-related DB tables
  */
-class Hooks
-{
+class Hooks {
 
 	/* ======================================================================
 	 * 0. TIER 1 — Early override of SMW result printers
@@ -49,11 +44,13 @@ class Hooks
 	 *
 	 * Primary mechanism for overriding SMW result printers inside the SMW
 	 * Settings object before SMW builds its printer registry.
+	 *
+	 * @param \SMW\Settings $settings
+	 * @return bool
 	 */
-	public static function onSMWSettingsBeforeInitializationComplete($settings)
-	{
-		wfDebugLog('fieldpermissions', 'SMW settings hook: overriding result printers.');
-		self::overrideResultFormats($settings);
+	public static function onSMWSettingsBeforeInitializationComplete( $settings ) {
+		wfDebugLog( 'fieldpermissions', 'SMW settings hook: overriding result printers.' );
+		self::overrideResultFormats( $settings );
 		return true;
 	}
 
@@ -66,10 +63,11 @@ class Hooks
 	 *
 	 * Ensures global smwgResultFormats is updated for SMW versions that
 	 * still consult the global array during result printer resolution.
+	 *
+	 * @return bool
 	 */
-	public static function onSetupAfterCache()
-	{
-		wfDebugLog('fieldpermissions', 'SetupAfterCache: reinforcing printer overrides.');
+	public static function onSetupAfterCache() {
+		wfDebugLog( 'fieldpermissions', 'SetupAfterCache: reinforcing printer overrides.' );
 		self::overrideResultFormats();
 		return true;
 	}
@@ -88,9 +86,13 @@ class Hooks
 	 * earlier overrides.
 	 * ====================================================================== */
 
-	public static function onExtensionFunction()
-	{
-		wfDebugLog('fieldpermissions', 'ExtensionFunctions: applying final visibility printer override.');
+	/**
+	 * Hook: ExtensionFunctions
+	 *
+	 * @return bool
+	 */
+	public static function onExtensionFunction() {
+		wfDebugLog( 'fieldpermissions', 'ExtensionFunctions: applying final visibility printer override.' );
 		self::overrideResultFormats();
 		return true;
 	}
@@ -105,10 +107,10 @@ class Hooks
 	 * Updates:
 	 *   - the SMW Settings object (when provided)
 	 *   - global $smwgResultFormats (always)
+	 *
+	 * @param \SMW\Settings|null $settings
 	 */
-	private static function overrideResultFormats($settings = null): void
-	{
-
+	private static function overrideResultFormats( $settings = null ): void {
 		$overrides = [
 			'table' => \FieldPermissions\SMW\Printers\FpTableResultPrinter::class,
 			'broadtable' => \FieldPermissions\SMW\Printers\FpTableResultPrinter::class,
@@ -129,26 +131,28 @@ class Hooks
 		/* 1) Update SMW Settings object (Tier 1) */
 		if (
 			$settings &&
-			is_object($settings) &&
-			method_exists($settings, 'get') &&
-			method_exists($settings, 'set')
+			is_object( $settings ) &&
+			method_exists( $settings, 'get' ) &&
+			method_exists( $settings, 'set' )
 		) {
-			$current = $settings->get('smwgResultFormats');
+			$current = $settings->get( 'smwgResultFormats' );
 
-			if (is_array($current)) {
-				$merged = array_merge($current, $overrides);
-				$settings->set('smwgResultFormats', $merged);
+			if ( is_array( $current ) ) {
+				$merged = array_merge( $current, $overrides );
+				$settings->set( 'smwgResultFormats', $merged );
 			}
 		}
 
 		/* 2) Update global fallback (Tier 2 & Tier 3) */
+		// phpcs:disable MediaWiki.NamingConventions.ValidGlobalName
 		global $smwgResultFormats;
+		// phpcs:enable MediaWiki.NamingConventions.ValidGlobalName
 
-		if (!is_array($smwgResultFormats ?? null)) {
+		if ( !is_array( $smwgResultFormats ?? null ) ) {
 			$smwgResultFormats = [];
 		}
 
-		$smwgResultFormats = array_merge($smwgResultFormats, $overrides);
+		$smwgResultFormats = array_merge( $smwgResultFormats, $overrides );
 		$GLOBALS['smwgResultFormats'] = $smwgResultFormats;
 	}
 
@@ -156,19 +160,22 @@ class Hooks
 	 * 1. Schema Installation
 	 * ====================================================================== */
 
-	public static function onLoadExtensionSchemaUpdates(DatabaseUpdater $updater)
-	{
-		$dir = dirname(__DIR__);
+	/**
+	 * @param DatabaseUpdater $updater
+	 * @return bool
+	 */
+	public static function onLoadExtensionSchemaUpdates( DatabaseUpdater $updater ) {
+		$dir = dirname( __DIR__ );
 
 		$type = $updater->getDB()->getType();
-		if ($type === 'sqlite') {
+		if ( $type === 'sqlite' ) {
 			$script = "$dir/sql/sqlite/tables.sql";
-			$updater->addExtensionTable('fp_visibility_levels', $script);
-			$updater->addExtensionTable('fp_group_levels', $script);
-		} elseif ($type === 'mysql') {
+			$updater->addExtensionTable( 'fp_visibility_levels', $script );
+			$updater->addExtensionTable( 'fp_group_levels', $script );
+		} elseif ( $type === 'mysql' ) {
 			$script = "$dir/sql/mysql/tables.sql";
-			$updater->addExtensionTable('fp_visibility_levels', $script);
-			$updater->addExtensionTable('fp_group_levels', $script);
+			$updater->addExtensionTable( 'fp_visibility_levels', $script );
+			$updater->addExtensionTable( 'fp_group_levels', $script );
 		}
 
 		return true;
@@ -178,20 +185,25 @@ class Hooks
 	 * 2. Parser Cache Variation
 	 * ====================================================================== */
 
-	public static function onPageRenderingHash(&$confstr, $user, &$forOptions)
-	{
+	/**
+	 * @param string &$confstr
+	 * @param UserIdentity $user
+	 * @param array &$forOptions
+	 * @return bool
+	 */
+	public static function onPageRenderingHash( &$confstr, $user, &$forOptions ) {
 		$services = MediaWikiServices::getInstance();
 
-		if (!$services->hasService('FieldPermissions.PermissionEvaluator')) {
+		if ( !$services->hasService( 'FieldPermissions.PermissionEvaluator' ) ) {
 			return true;
 		}
 
 		$profile = $services
-			->get('FieldPermissions.PermissionEvaluator')
-			->getUserProfile($user);
+			->get( 'FieldPermissions.PermissionEvaluator' )
+			->getUserProfile( $user );
 
 		$confstr .= '!fp-level=' . $profile->getMaxLevel();
-		$confstr .= '!fp-groups=' . implode(',', $profile->getGroups());
+		$confstr .= '!fp-groups=' . implode( ',', $profile->getGroups() );
 
 		return true;
 	}
@@ -200,26 +212,33 @@ class Hooks
 	 * 3. Edit Permission Enforcement
 	 * ====================================================================== */
 
+	/**
+	 * @param \Title $title
+	 * @param UserIdentity $user
+	 * @param string $action
+	 * @param mixed &$result
+	 * @return bool
+	 */
 	public static function onGetUserPermissionsErrors(
 		$title,
 		$user,
 		$action,
 		&$result
 	) {
-		if ($action !== 'edit' && $action !== 'create') {
+		if ( $action !== 'edit' && $action !== 'create' ) {
 			return true;
 		}
 
 		$services = MediaWikiServices::getInstance();
-		if (!$services->hasService('FieldPermissions.VisibilityEditGuard')) {
+		if ( !$services->hasService( 'FieldPermissions.VisibilityEditGuard' ) ) {
 			return true;
 		}
 
 		$status = $services
-			->get('FieldPermissions.VisibilityEditGuard')
-			->checkEditPermission($title, $user);
+			->get( 'FieldPermissions.VisibilityEditGuard' )
+			->checkEditPermission( $title, $user );
 
-		if (!$status->isOK()) {
+		if ( !$status->isOK() ) {
 			$result = $status->getErrorsArray();
 			return false;
 		}
@@ -231,6 +250,14 @@ class Hooks
 	 * 4. Save-Time Content Validation
 	 * ====================================================================== */
 
+	/**
+	 * @param RenderedRevision $renderedRevision
+	 * @param UserIdentity $user
+	 * @param mixed $performer
+	 * @param array $slots
+	 * @param mixed $editResult
+	 * @return bool|\Status
+	 */
 	public static function onMultiContentSave(
 		RenderedRevision $renderedRevision,
 		UserIdentity $user,
@@ -240,15 +267,15 @@ class Hooks
 	) {
 		$services = MediaWikiServices::getInstance();
 
-		if (!$services->hasService('FieldPermissions.VisibilityEditGuard')) {
+		if ( !$services->hasService( 'FieldPermissions.VisibilityEditGuard' ) ) {
 			return true;
 		}
 
-		$guard = $services->get('FieldPermissions.VisibilityEditGuard');
+		$guard = $services->get( 'FieldPermissions.VisibilityEditGuard' );
 
-		foreach ($slots as $slot) {
-			$status = $guard->validateContent($slot->getContent(), $user);
-			if (!$status->isOK()) {
+		foreach ( $slots as $slot ) {
+			$status = $guard->validateContent( $slot->getContent(), $user );
+			if ( !$status->isOK() ) {
 				return $status;
 			}
 		}
@@ -260,18 +287,23 @@ class Hooks
 	 * 5. SMW Factbox Filtering
 	 * ====================================================================== */
 
+	/**
+	 * @param DIWikiPage $subject
+	 * @param array &$properties
+	 * @return void
+	 */
 	public static function onSMWFactboxBeforeContentGeneration(
 		DIWikiPage $subject,
 		array &$properties
 	) {
 		$services = MediaWikiServices::getInstance();
 
-		if (!$services->hasService('FieldPermissions.SmwQueryFilter')) {
+		if ( !$services->hasService( 'FieldPermissions.SmwQueryFilter' ) ) {
 			return;
 		}
 
 		$services
-			->get('FieldPermissions.SmwQueryFilter')
-			->filterFactboxProperties($subject, $properties);
+			->get( 'FieldPermissions.SmwQueryFilter' )
+			->filterFactboxProperties( $subject, $properties );
 	}
 }

@@ -2,13 +2,12 @@
 
 namespace FieldPermissions\Special;
 
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\MediaWikiServices;
-use FieldPermissions\Config\VisibilityLevelStore;
 use FieldPermissions\Config\GroupLevelStore;
+use FieldPermissions\Config\VisibilityLevelStore;
 use HTMLForm;
 use MediaWiki\Html\Html;
-use MediaWiki\Linker\LinkRenderer;
+use MediaWiki\MediaWikiServices;
+use MediaWiki\SpecialPage\SpecialPage;
 
 /**
  * Special:ManageVisibility
@@ -29,6 +28,12 @@ class SpecialManageVisibility extends SpecialPage {
 	/**
 	 * Entry point.
 	 */
+
+	/**
+	 * Entry point.
+	 *
+	 * @param string|null $sub
+	 */
 	public function execute( $sub ) {
 		$this->setHeaders();
 		$this->checkPermissions();
@@ -46,9 +51,9 @@ class SpecialManageVisibility extends SpecialPage {
 	 * -------------------------------------------------------------------- */
 
 	private function showLevelsSection(): void {
-		$out      = $this->getOutput();
-		$request  = $this->getRequest();
-		$appCtx   = $this->getContext();
+		$out = $this->getOutput();
+		$request = $this->getRequest();
+		$appCtx = $this->getContext();
 		$services = MediaWikiServices::getInstance();
 
 		/** @var VisibilityLevelStore $store */
@@ -74,24 +79,24 @@ class SpecialManageVisibility extends SpecialPage {
 		-------------------------------------------------------------- */
 		$formDescriptor = [
 			'vl_name' => [
-				'type'              => 'text',
-				'label-message'     => 'fieldpermissions-level-name',
-				'required'          => true,
-				'validation-callback' => static function ( $val ) {
+				'type' => 'text',
+				'label-message' => 'fieldpermissions-level-name',
+				'required' => true,
+				'validation-callback' => function ( $val ) {
 					return preg_match( '/^[a-zA-Z0-9_]+$/', $val )
 						? true
-						: wfMessage( 'fieldpermissions-invalid-level-name' )->text();
+						: $this->msg( 'fieldpermissions-invalid-level-name' )->text();
 				},
 			],
 			'vl_numeric_level' => [
-				'type'          => 'int',
+				'type' => 'int',
 				'label-message' => 'fieldpermissions-numeric-level',
-				'required'      => true,
+				'required' => true,
 			],
 			'vl_page_title' => [
-				'type'          => 'text',
+				'type' => 'text',
 				'label-message' => 'fieldpermissions-page-title',
-				'help-message'  => 'fieldpermissions-page-title-help',
+				'help-message' => 'fieldpermissions-page-title-help',
 			],
 		];
 
@@ -129,7 +134,9 @@ class SpecialManageVisibility extends SpecialPage {
 	private function buildLevelsTable( array $levels ): string {
 		$rows = [];
 
-		$rows[] = Html::rawElement( 'tr', [],
+		$rows[] = Html::rawElement(
+			'tr',
+			[],
 			Html::element( 'th', [], 'ID' ) .
 			Html::element( 'th', [], 'Name' ) .
 			Html::element( 'th', [], 'Numeric Level' ) .
@@ -147,16 +154,18 @@ class SpecialManageVisibility extends SpecialPage {
 				Html::element(
 					'button',
 					[
-						'type'    => 'submit',
-						'name'    => 'id',
-						'value'   => $level->getId(),
+						'type' => 'submit',
+						'name' => 'id',
+						'value' => $level->getId(),
 						'onclick' => "return confirm('Are you sure you want to delete this level?');"
 					],
 					'Delete'
 				)
 			);
 
-			$rows[] = Html::rawElement( 'tr', [],
+			$rows[] = Html::rawElement(
+				'tr',
+				[],
 				Html::element( 'td', [], $level->getId() ) .
 				Html::element( 'td', [], $level->getName() ) .
 				Html::element( 'td', [], $level->getNumericLevel() ) .
@@ -173,9 +182,9 @@ class SpecialManageVisibility extends SpecialPage {
 	 * -------------------------------------------------------------------- */
 
 	private function showGroupsSection(): void {
-		$out      = $this->getOutput();
-		$request  = $this->getRequest();
-		$appCtx   = $this->getContext();
+		$out = $this->getOutput();
+		$request = $this->getRequest();
+		$appCtx = $this->getContext();
 		$services = MediaWikiServices::getInstance();
 
 		/** @var GroupLevelStore $groupStore */
@@ -211,15 +220,15 @@ class SpecialManageVisibility extends SpecialPage {
 
 		$formDescriptor = [
 			'gl_group_name' => [
-				'type'          => 'text',
+				'type' => 'text',
 				'label-message' => 'fieldpermissions-group-name',
-				'required'      => true,
+				'required' => true,
 			],
 			'gl_max_level' => [
-				'type'          => 'select',
-				'options'       => $levelOptions,
+				'type' => 'select',
+				'options' => $levelOptions,
 				'label-message' => 'fieldpermissions-max-level',
-				'required'      => true,
+				'required' => true,
 			],
 		];
 
@@ -256,7 +265,9 @@ class SpecialManageVisibility extends SpecialPage {
 	private function buildGroupsTable( array $mappings ): string {
 		$rows = [];
 
-		$rows[] = Html::rawElement( 'tr', [],
+		$rows[] = Html::rawElement(
+			'tr',
+			[],
 			Html::element( 'th', [], 'Group Name' ) .
 			Html::element( 'th', [], 'Max Level' ) .
 			Html::element( 'th', [], 'Actions' )
@@ -273,16 +284,18 @@ class SpecialManageVisibility extends SpecialPage {
 				Html::element(
 					'button',
 					[
-						'type'    => 'submit',
-						'name'    => 'group',
-						'value'   => $group,
+						'type' => 'submit',
+						'name' => 'group',
+						'value' => $group,
 						'onclick' => "return confirm('Remove this group mapping?');",
 					],
 					'Remove'
 				)
 			);
 
-			$rows[] = Html::rawElement( 'tr', [],
+			$rows[] = Html::rawElement(
+				'tr',
+				[],
 				Html::element( 'td', [], $group ) .
 				Html::element( 'td', [], $level ) .
 				Html::rawElement( 'td', [], $deleteForm )
@@ -292,4 +305,3 @@ class SpecialManageVisibility extends SpecialPage {
 		return Html::rawElement( 'table', [ 'class' => 'wikitable' ], implode( "\n", $rows ) );
 	}
 }
-

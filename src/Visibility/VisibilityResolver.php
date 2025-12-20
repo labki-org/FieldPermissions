@@ -61,17 +61,20 @@ class VisibilityResolver {
 			return $this->propertyLevelCache[$key];
 		}
 
-		$levelValue = 0;  // Default: public
+		// Default: public
+		$levelValue = 0;
 
 		try {
 			$store = $this->getSMWStore();
 			if ( !$store ) {
 				wfDebugLog( 'fieldpermissions', "VisibilityResolver: No SMW store available." );
-				return $this->propertyLevelCache[$key] = $levelValue;
+				$this->propertyLevelCache[$key] = $levelValue;
+				return $levelValue;
 			}
 
 			$subject = $property->getDiWikiPage();
-			$visProp = new DIProperty( 'Has_visibility_level' );  // SMW normalized form
+			// SMW normalized form
+			$visProp = new DIProperty( 'Has_visibility_level' );
 
 			wfDebugLog(
 				'fieldpermissions',
@@ -87,12 +90,10 @@ class VisibilityResolver {
 					$resolved =
 						$this->resolveLevelFromIdentifier( $title->getPrefixedText() ) ??
 						$this->resolveLevelFromIdentifier( $title->getText() );
-				}
-				// String/blob case
-				elseif ( $this->isStringDataItem( $di ) ) {
+				} elseif ( $this->isStringDataItem( $di ) ) {
+					// String/blob case
 					$resolved = $this->resolveLevelFromIdentifier( $di->getString() );
-				}
-				else {
+				} else {
 					wfDebugLog(
 						'fieldpermissions',
 						"VisibilityResolver: Unexpected DI type in visibility level: " . get_class( $di )
@@ -105,15 +106,16 @@ class VisibilityResolver {
 					break;
 				}
 			}
-		}
-		catch ( \Exception $e ) {
+		} catch ( \Exception $e ) {
 			wfDebugLog(
 				'fieldpermissions',
 				"VisibilityResolver: Exception resolving property level: " . $e->getMessage()
 			);
 		}
 
-		return $this->propertyLevelCache[$key] = $levelValue;
+		$this->propertyLevelCache[$key] = $levelValue;
+
+		return $levelValue;
 	}
 
 	/**
@@ -140,7 +142,8 @@ class VisibilityResolver {
 			$store = $this->getSMWStore();
 			if ( !$store ) {
 				wfDebugLog( 'fieldpermissions', 'VisibilityResolver: No SMW store available.' );
-				return $this->propertyVisibleToCache[$key] = [];
+				$this->propertyVisibleToCache[$key] = [];
+				return [];
 			}
 
 			$subject = $property->getDiWikiPage();
@@ -159,15 +162,13 @@ class VisibilityResolver {
 				// String / blob annotation: [[Visible to::pi]]
 				if ( $this->isStringDataItem( $di ) ) {
 					$normalized = $this->normalizeGroupName( $di->getString() );
-				}
-				// Page link annotation: [[Visible to::Group:PI]]
-				elseif ( $this->isWikiPageDataItem( $di ) ) {
+				} elseif ( $this->isWikiPageDataItem( $di ) ) {
+					// Page link annotation: [[Visible to::Group:PI]]
 					$title = $di->getTitle();
 					$normalized =
 						$this->normalizeGroupName( $title->getPrefixedText() ) ?:
 						$this->normalizeGroupName( $title->getText() );
-				}
-				else {
+				} else {
 					wfDebugLog(
 						'fieldpermissions',
 						"VisibilityResolver: Unexpected DI type in Visible_to: " . get_class( $di )
@@ -179,8 +180,7 @@ class VisibilityResolver {
 					$groups[] = $normalized;
 				}
 			}
-		}
-		catch ( \Exception $e ) {
+		} catch ( \Exception $e ) {
 			wfDebugLog(
 				'fieldpermissions',
 				"VisibilityResolver: Exception resolving Visible_to: " . $e->getMessage()
@@ -195,7 +195,9 @@ class VisibilityResolver {
 			. implode( ', ', $groups )
 		);
 
-		return $this->propertyVisibleToCache[$key] = $groups;
+		$this->propertyVisibleToCache[$key] = $groups;
+
+		return $groups;
 	}
 
 	/* --------------------------------------------------------------------
@@ -301,6 +303,9 @@ class VisibilityResolver {
 
 	/**
 	 * Identify DIString-like items.
+	 *
+	 * @param mixed $di
+	 * @return bool
 	 */
 	private function isStringDataItem( $di ): bool {
 		return $di instanceof \SMW\DIString
@@ -311,10 +316,12 @@ class VisibilityResolver {
 
 	/**
 	 * Identify DIWikiPage-like items.
+	 *
+	 * @param mixed $di
+	 * @return bool
 	 */
 	private function isWikiPageDataItem( $di ): bool {
 		return $di instanceof DIWikiPage
 			|| ( class_exists( '\SMWDIWikiPage', false ) && $di instanceof \SMWDIWikiPage );
 	}
 }
-

@@ -2,12 +2,12 @@
 
 namespace FieldPermissions\SMW\Printers;
 
+use FieldPermissions\Visibility\ResultPrinterVisibilityFilter;
 use MediaWiki\Context\RequestContext;
 use MediaWiki\MediaWikiServices;
-use FieldPermissions\Visibility\ResultPrinterVisibilityFilter;
 use ReflectionClass;
-use SMW\Query\QueryResult;
 use SMW\Query\PrintRequest;
+use SMW\Query\QueryResult;
 
 /**
  * PrinterFilterTrait
@@ -53,11 +53,10 @@ trait PrinterFilterTrait {
 	 * calls parent::getResultText().
 	 *
 	 * @param QueryResult $queryResult
-	 * @param int         $outputMode One of SMW_OUTPUT_* constants
+	 * @param int $outputMode One of SMW_OUTPUT_* constants
 	 * @return string
 	 */
 	public function getResultText( QueryResult $queryResult, $outputMode ) {
-
 		$user = RequestContext::getMain()->getUser();
 
 		wfDebugLog( 'fieldpermissions', "----------------------------------------" );
@@ -177,7 +176,7 @@ trait PrinterFilterTrait {
 	 * Read print requests via reflection.
 	 *
 	 * @param QueryResult $queryResult
-	 * @param string      $property
+	 * @param string $property
 	 * @return mixed
 	 */
 	private function readPrintRequestArray( QueryResult $queryResult, string $property ) {
@@ -191,8 +190,8 @@ trait PrinterFilterTrait {
 	 * Write filtered print requests back to QueryResult via reflection.
 	 *
 	 * @param QueryResult $queryResult
-	 * @param string      $property
-	 * @param array       $value
+	 * @param string $property
+	 * @param array $value
 	 */
 	private function writePrintRequestArray( QueryResult $queryResult, string $property, array $value ): void {
 		$ref = new ReflectionClass( $queryResult );

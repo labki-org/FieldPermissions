@@ -8,6 +8,7 @@ use MediaWiki\MediaWikiServices;
 
 require_once __DIR__ . '/../../../maintenance/Maintenance.php';
 
+// phpcs:disable MediaWiki.Files.ClassMatchesFilename.NotMatch
 class SeedFieldPermissions extends Maintenance {
 	public function __construct() {
 		parent::__construct();
@@ -49,10 +50,14 @@ class SeedFieldPermissions extends Maintenance {
 
 		$this->output( "Seeding group levels...\n" );
 		$groups = [
-			'user' => 0, // Public
-			'lab_member' => 10, // Internal
-			'pi' => 30, // PI Only
-			'sysop' => 30 // Admins see everything
+			// Public
+			'user' => 0,
+			// Internal
+			'lab_member' => 10,
+			// PI Only
+			'pi' => 30,
+			// Admins see everything
+			'sysop' => 30
 		];
 
 		foreach ( $groups as $group => $level ) {
@@ -70,4 +75,3 @@ class SeedFieldPermissions extends Maintenance {
 
 $maintClass = SeedFieldPermissions::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-

@@ -2,15 +2,14 @@
 
 namespace FieldPermissions;
 
-use MediaWiki\MediaWikiServices;
-
-use FieldPermissions\Config\VisibilityLevelStore;
 use FieldPermissions\Config\GroupLevelStore;
-use FieldPermissions\Visibility\VisibilityResolver;
-use FieldPermissions\Visibility\PermissionEvaluator;
-use FieldPermissions\Visibility\SmwQueryFilter;
-use FieldPermissions\Visibility\ResultPrinterVisibilityFilter;
+use FieldPermissions\Config\VisibilityLevelStore;
 use FieldPermissions\Protection\VisibilityEditGuard;
+use FieldPermissions\Visibility\PermissionEvaluator;
+use FieldPermissions\Visibility\ResultPrinterVisibilityFilter;
+use FieldPermissions\Visibility\SmwQueryFilter;
+use FieldPermissions\Visibility\VisibilityResolver;
+use MediaWiki\MediaWikiServices;
 
 /**
  * Service wiring for FieldPermissions.

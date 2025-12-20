@@ -148,7 +148,6 @@ class PermissionEvaluator {
 		int $propLevel,
 		array $visibleToGroups
 	): bool {
-
 		$profile = $this->getUserProfile( $user );
 
 		/* --------------------------------------------------------------

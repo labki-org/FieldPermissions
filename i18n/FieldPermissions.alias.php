@@ -12,4 +12,3 @@ $specialPageAliases = [];
 $specialPageAliases['en'] = [
 	'ManageVisibility' => [ 'ManageVisibility', 'FieldPermissions' ],
 ];
-

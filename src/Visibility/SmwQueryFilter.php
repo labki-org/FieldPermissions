@@ -55,7 +55,7 @@ class SmwQueryFilter {
 	 * This method removes prohibited properties entirely.
 	 *
 	 * @param DIWikiPage $subject
-	 * @param array      &$properties  (modified in-place)
+	 * @param array &$properties (modified in-place)
 	 */
 	public function filterFactboxProperties( DIWikiPage $subject, array &$properties ): void {
 		$user = RequestContext::getMain()->getUser();

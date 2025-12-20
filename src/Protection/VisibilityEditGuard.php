@@ -2,14 +2,14 @@
 
 namespace FieldPermissions\Protection;
 
-use MediaWiki\User\UserIdentity;
-use MediaWiki\Title\Title;
-use MediaWiki\Status\Status;
+use FieldPermissions\Visibility\PermissionEvaluator;
+use FieldPermissions\Visibility\VisibilityResolver;
 use MediaWiki\Content\Content;
 use MediaWiki\Content\TextContent;
 use MediaWiki\MediaWikiServices;
-use FieldPermissions\Visibility\VisibilityResolver;
-use FieldPermissions\Visibility\PermissionEvaluator;
+use MediaWiki\Status\Status;
+use MediaWiki\Title\Title;
+use MediaWiki\User\UserIdentity;
 use SMW\DIProperty;
 
 /**
@@ -43,12 +43,11 @@ class VisibilityEditGuard {
 	 *   - Visibility: pages (definition pages)
 	 *   - Property pages with existing visibility settings
 	 *
-	 * @param Title        $title
+	 * @param Title $title
 	 * @param UserIdentity $user
-	 * @return Status  Fatal if blocked; Good otherwise
+	 * @return Status Fatal if blocked; Good otherwise
 	 */
 	public function checkEditPermission( $title, UserIdentity $user ): Status {
-
 		// 1. Visibility definition pages (`Visibility:*`)
 		if ( $this->isVisibilityDefinitionPage( $title ) ) {
 			if ( !$this->canManageVisibility( $user ) ) {
@@ -75,12 +74,11 @@ class VisibilityEditGuard {
 	 *
 	 * Only applies to TextContent.
 	 *
-	 * @param Content      $content
+	 * @param Content $content
 	 * @param UserIdentity $user
 	 * @return Status
 	 */
 	public function validateContent( Content $content, UserIdentity $user ): Status {
-
 		// Authorized users may always edit
 		if ( $this->canManageVisibility( $user ) ) {
 			return Status::newGood();
@@ -147,8 +145,7 @@ class VisibilityEditGuard {
 			$visibleTo = $this->resolver->getPropertyVisibleTo( $property );
 
 			return $level > 0 || !empty( $visibleTo );
-		}
-		catch ( \Exception $e ) {
+		} catch ( \Exception $e ) {
 			// Invalid property name — treat as unrestricted
 			return false;
 		}

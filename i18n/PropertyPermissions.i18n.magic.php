@@ -1,6 +1,6 @@
 <?php
 /**
- * Magic words for the FieldPermissions extension.
+ * Magic words for the PropertyPermissions extension.
  */
 
 $magicWords = [];

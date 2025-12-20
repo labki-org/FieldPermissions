@@ -1,6 +1,6 @@
 <?php
 
-namespace FieldPermissions;
+namespace PropertyPermissions;
 
 use MediaWiki\Installer\DatabaseUpdater;
 use MediaWiki\MediaWikiServices;
@@ -9,7 +9,7 @@ use MediaWiki\User\UserIdentity;
 use SMW\DIWikiPage;
 
 /**
- * FieldPermissions – Central MediaWiki + Semantic MediaWiki hook implementations.
+ * PropertyPermissions – Central MediaWiki + Semantic MediaWiki hook implementations.
  *
  * Visibility filtering architecture (three-tier):
  *
@@ -49,7 +49,7 @@ class Hooks {
 	 * @return bool
 	 */
 	public static function onSMWSettingsBeforeInitializationComplete( $settings ) {
-		wfDebugLog( 'fieldpermissions', 'SMW settings hook: overriding result printers.' );
+		wfDebugLog( 'propertypermissions', 'SMW settings hook: overriding result printers.' );
 		self::overrideResultFormats( $settings );
 		return true;
 	}
@@ -67,7 +67,7 @@ class Hooks {
 	 * @return bool
 	 */
 	public static function onSetupAfterCache() {
-		wfDebugLog( 'fieldpermissions', 'SetupAfterCache: reinforcing printer overrides.' );
+		wfDebugLog( 'propertypermissions', 'SetupAfterCache: reinforcing printer overrides.' );
 		self::overrideResultFormats();
 		return true;
 	}
@@ -92,7 +92,7 @@ class Hooks {
 	 * @return bool
 	 */
 	public static function onExtensionFunction() {
-		wfDebugLog( 'fieldpermissions', 'ExtensionFunctions: applying final visibility printer override.' );
+		wfDebugLog( 'propertypermissions', 'ExtensionFunctions: applying final visibility printer override.' );
 		self::overrideResultFormats();
 		return true;
 	}
@@ -102,7 +102,7 @@ class Hooks {
 	 * ====================================================================== */
 
 	/**
-	 * Replace SMW result format → class mappings with FieldPermissions printers.
+	 * Replace SMW result format → class mappings with PropertyPermissions printers.
 	 *
 	 * Updates:
 	 *   - the SMW Settings object (when provided)
@@ -112,20 +112,20 @@ class Hooks {
 	 */
 	private static function overrideResultFormats( $settings = null ): void {
 		$overrides = [
-			'table' => \FieldPermissions\SMW\Printers\FpTableResultPrinter::class,
-			'broadtable' => \FieldPermissions\SMW\Printers\FpTableResultPrinter::class,
+			'table' => \PropertyPermissions\SMW\Printers\FpTableResultPrinter::class,
+			'broadtable' => \PropertyPermissions\SMW\Printers\FpTableResultPrinter::class,
 
-			'list' => \FieldPermissions\SMW\Printers\FpListResultPrinter::class,
-			'ul' => \FieldPermissions\SMW\Printers\FpListResultPrinter::class,
-			'ol' => \FieldPermissions\SMW\Printers\FpListResultPrinter::class,
+			'list' => \PropertyPermissions\SMW\Printers\FpListResultPrinter::class,
+			'ul' => \PropertyPermissions\SMW\Printers\FpListResultPrinter::class,
+			'ol' => \PropertyPermissions\SMW\Printers\FpListResultPrinter::class,
 
-			'template' => \FieldPermissions\SMW\Printers\FpTemplateResultPrinter::class,
+			'template' => \PropertyPermissions\SMW\Printers\FpTemplateResultPrinter::class,
 
-			'json' => \FieldPermissions\SMW\Printers\FpJsonResultPrinter::class,
-			'csv' => \FieldPermissions\SMW\Printers\FpCsvResultPrinter::class,
-			'dsv' => \FieldPermissions\SMW\Printers\FpCsvResultPrinter::class,
+			'json' => \PropertyPermissions\SMW\Printers\FpJsonResultPrinter::class,
+			'csv' => \PropertyPermissions\SMW\Printers\FpCsvResultPrinter::class,
+			'dsv' => \PropertyPermissions\SMW\Printers\FpCsvResultPrinter::class,
 
-			'default' => \FieldPermissions\SMW\Printers\FpTableResultPrinter::class,
+			'default' => \PropertyPermissions\SMW\Printers\FpTableResultPrinter::class,
 		];
 
 		/* 1) Update SMW Settings object (Tier 1) */
@@ -194,12 +194,12 @@ class Hooks {
 	public static function onPageRenderingHash( &$confstr, $user, &$forOptions ) {
 		$services = MediaWikiServices::getInstance();
 
-		if ( !$services->hasService( 'FieldPermissions.PermissionEvaluator' ) ) {
+		if ( !$services->hasService( 'PropertyPermissions.PermissionEvaluator' ) ) {
 			return true;
 		}
 
 		$profile = $services
-			->get( 'FieldPermissions.PermissionEvaluator' )
+			->get( 'PropertyPermissions.PermissionEvaluator' )
 			->getUserProfile( $user );
 
 		$confstr .= '!fp-level=' . $profile->getMaxLevel();
@@ -230,12 +230,12 @@ class Hooks {
 		}
 
 		$services = MediaWikiServices::getInstance();
-		if ( !$services->hasService( 'FieldPermissions.VisibilityEditGuard' ) ) {
+		if ( !$services->hasService( 'PropertyPermissions.VisibilityEditGuard' ) ) {
 			return true;
 		}
 
 		$status = $services
-			->get( 'FieldPermissions.VisibilityEditGuard' )
+			->get( 'PropertyPermissions.VisibilityEditGuard' )
 			->checkEditPermission( $title, $user );
 
 		if ( !$status->isOK() ) {
@@ -267,11 +267,11 @@ class Hooks {
 	) {
 		$services = MediaWikiServices::getInstance();
 
-		if ( !$services->hasService( 'FieldPermissions.VisibilityEditGuard' ) ) {
+		if ( !$services->hasService( 'PropertyPermissions.VisibilityEditGuard' ) ) {
 			return true;
 		}
 
-		$guard = $services->get( 'FieldPermissions.VisibilityEditGuard' );
+		$guard = $services->get( 'PropertyPermissions.VisibilityEditGuard' );
 
 		foreach ( $slots as $slot ) {
 			$status = $guard->validateContent( $slot->getContent(), $user );
@@ -298,12 +298,12 @@ class Hooks {
 	) {
 		$services = MediaWikiServices::getInstance();
 
-		if ( !$services->hasService( 'FieldPermissions.SmwQueryFilter' ) ) {
+		if ( !$services->hasService( 'PropertyPermissions.SmwQueryFilter' ) ) {
 			return;
 		}
 
 		$services
-			->get( 'FieldPermissions.SmwQueryFilter' )
+			->get( 'PropertyPermissions.SmwQueryFilter' )
 			->filterFactboxProperties( $subject, $properties );
 	}
 }

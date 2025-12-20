@@ -1,9 +1,9 @@
 <?php
 
-namespace FieldPermissions\Protection;
+namespace PropertyPermissions\Protection;
 
-use FieldPermissions\Visibility\PermissionEvaluator;
-use FieldPermissions\Visibility\VisibilityResolver;
+use PropertyPermissions\Visibility\PermissionEvaluator;
+use PropertyPermissions\Visibility\VisibilityResolver;
 use MediaWiki\Content\Content;
 use MediaWiki\Content\TextContent;
 use MediaWiki\MediaWikiServices;
@@ -51,7 +51,7 @@ class VisibilityEditGuard {
 		// 1. Visibility definition pages (`Visibility:*`)
 		if ( $this->isVisibilityDefinitionPage( $title ) ) {
 			if ( !$this->canManageVisibility( $user ) ) {
-				return Status::newFatal( 'fieldpermissions-edit-denied-visibility' );
+				return Status::newFatal( 'propertypermissions-edit-denied-visibility' );
 			}
 		}
 
@@ -59,7 +59,7 @@ class VisibilityEditGuard {
 		if ( $title->getNamespace() === SMW_NS_PROPERTY ) {
 			if ( $this->isRestrictedProperty( $title ) ) {
 				if ( !$this->canManageVisibility( $user ) ) {
-					return Status::newFatal( 'fieldpermissions-edit-denied-property' );
+					return Status::newFatal( 'propertypermissions-edit-denied-property' );
 				}
 			}
 		}
@@ -99,7 +99,7 @@ class VisibilityEditGuard {
 
 		foreach ( $patterns as $pattern ) {
 			if ( preg_match( $pattern, $text ) ) {
-				return Status::newFatal( 'fieldpermissions-edit-denied-content' );
+				return Status::newFatal( 'propertypermissions-edit-denied-content' );
 			}
 		}
 

@@ -1,4 +1,4 @@
--- FieldPermissions Schema (MySQL)
+-- PropertyPermissions Schema (MySQL)
 
 CREATE TABLE /*_*/fp_visibility_levels (
     vl_id INT AUTO_INCREMENT PRIMARY KEY,

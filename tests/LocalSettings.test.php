@@ -26,17 +26,17 @@ wfLoadExtension( 'MsUpload' );
 wfLoadExtension( 'PageSchemas' );
 wfLoadExtension( 'Lockdown' );
 
-// Load FieldPermissions (mounted as FieldPermissions)
-wfLoadExtension( 'FieldPermissions', '/mw-user-extensions/FieldPermissions/extension.json' );
+// Load PropertyPermissions (mounted as PropertyPermissions)
+wfLoadExtension( 'PropertyPermissions', '/mw-user-extensions/PropertyPermissions/extension.json' );
 
 // Configuration
-$wgDebugLogGroups['fieldpermissions'] = '/var/log/mediawiki/fieldpermissions.log';
+$wgDebugLogGroups['propertypermissions'] = '/var/log/mediawiki/propertypermissions.log';
 $wgShowExceptionDetails = true;
 $wgDebugDumpSql = false;
 // Send other logs to file instead of stdout
 $wgDebugLogFile = '/var/log/mediawiki/debug.log';
 
-// Define custom user groups for FieldPermissions (from old test setup)
+// Define custom user groups for PropertyPermissions (from old test setup)
 $wgGroupPermissions['lab_member'] = $wgGroupPermissions['user'];
 $wgGroupPermissions['pi'] = $wgGroupPermissions['user'];
 
@@ -47,7 +47,7 @@ $smwgAutoSetupStore = false;
 $smwgQMaxInlineLimit = 500;
 
 // Cache
-$wgCacheDirectory = "$IP/cache-fieldpermissions";
+$wgCacheDirectory = "$IP/cache-propertypermissions";
 
 // skin
 wfLoadSkin( 'Citizen' );

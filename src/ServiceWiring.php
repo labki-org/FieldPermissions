@@ -1,18 +1,18 @@
 <?php
 
-namespace FieldPermissions;
+namespace PropertyPermissions;
 
-use FieldPermissions\Config\GroupLevelStore;
-use FieldPermissions\Config\VisibilityLevelStore;
-use FieldPermissions\Protection\VisibilityEditGuard;
-use FieldPermissions\Visibility\PermissionEvaluator;
-use FieldPermissions\Visibility\ResultPrinterVisibilityFilter;
-use FieldPermissions\Visibility\SmwQueryFilter;
-use FieldPermissions\Visibility\VisibilityResolver;
+use PropertyPermissions\Config\GroupLevelStore;
+use PropertyPermissions\Config\VisibilityLevelStore;
+use PropertyPermissions\Protection\VisibilityEditGuard;
+use PropertyPermissions\Visibility\PermissionEvaluator;
+use PropertyPermissions\Visibility\ResultPrinterVisibilityFilter;
+use PropertyPermissions\Visibility\SmwQueryFilter;
+use PropertyPermissions\Visibility\VisibilityResolver;
 use MediaWiki\MediaWikiServices;
 
 /**
- * Service wiring for FieldPermissions.
+ * Service wiring for PropertyPermissions.
  *
  * Registers all internal components into MediaWiki's dependency injection
  * container. These services are used across:
@@ -33,7 +33,7 @@ return [
 	 * Stores named visibility levels (Public, LabMembers, PIOnly, ...).
 	 * Backed by table: fp_visibility_levels
 	 */
-	'FieldPermissions.VisibilityLevelStore' => static function ( MediaWikiServices $services ) {
+	'PropertyPermissions.VisibilityLevelStore' => static function ( MediaWikiServices $services ) {
 		return new VisibilityLevelStore(
 			$services->getDBLoadBalancer()
 		);
@@ -43,7 +43,7 @@ return [
 	 * Maps user groups → maximum visibility level.
 	 * Backed by table: fp_group_levels
 	 */
-	'FieldPermissions.GroupLevelStore' => static function ( MediaWikiServices $services ) {
+	'PropertyPermissions.GroupLevelStore' => static function ( MediaWikiServices $services ) {
 		return new GroupLevelStore(
 			$services->getDBLoadBalancer()
 		);
@@ -62,9 +62,9 @@ return [
 	 *   [[Has visibility level::...]]
 	 *   [[Visible to::...]]
 	 */
-	'FieldPermissions.VisibilityResolver' => static function ( MediaWikiServices $services ) {
+	'PropertyPermissions.VisibilityResolver' => static function ( MediaWikiServices $services ) {
 		return new VisibilityResolver(
-			$services->get( 'FieldPermissions.VisibilityLevelStore' )
+			$services->get( 'PropertyPermissions.VisibilityLevelStore' )
 		);
 	},
 
@@ -73,9 +73,9 @@ return [
 	 *   - normalized list of groups
 	 *   - maximum allowed visibility level
 	 */
-	'FieldPermissions.PermissionEvaluator' => static function ( MediaWikiServices $services ) {
+	'PropertyPermissions.PermissionEvaluator' => static function ( MediaWikiServices $services ) {
 		return new PermissionEvaluator(
-			$services->get( 'FieldPermissions.GroupLevelStore' ),
+			$services->get( 'PropertyPermissions.GroupLevelStore' ),
 			$services->getUserGroupManager()
 		);
 	},
@@ -90,10 +90,10 @@ return [
 	 *   - SMW Factbox
 	 *   - (optionally) QueryResult post-processing
 	 */
-	'FieldPermissions.SmwQueryFilter' => static function ( MediaWikiServices $services ) {
+	'PropertyPermissions.SmwQueryFilter' => static function ( MediaWikiServices $services ) {
 		return new SmwQueryFilter(
-			$services->get( 'FieldPermissions.VisibilityResolver' ),
-			$services->get( 'FieldPermissions.PermissionEvaluator' )
+			$services->get( 'PropertyPermissions.VisibilityResolver' ),
+			$services->get( 'PropertyPermissions.PermissionEvaluator' )
 		);
 	},
 
@@ -102,10 +102,10 @@ return [
 	 * Used by Fp*ResultPrinter classes to filter SMW query columns
 	 * (via PrintRequest visibility checks).
 	 */
-	'FieldPermissions.ResultPrinterVisibilityFilter' => static function ( MediaWikiServices $services ) {
+	'PropertyPermissions.ResultPrinterVisibilityFilter' => static function ( MediaWikiServices $services ) {
 		return new ResultPrinterVisibilityFilter(
-			$services->get( 'FieldPermissions.VisibilityResolver' ),
-			$services->get( 'FieldPermissions.PermissionEvaluator' )
+			$services->get( 'PropertyPermissions.VisibilityResolver' ),
+			$services->get( 'PropertyPermissions.PermissionEvaluator' )
 		);
 	},
 
@@ -119,10 +119,10 @@ return [
 	 *   - SMW property pages with visibility annotations
 	 *   - content modifications that introduce / change visibility settings
 	 */
-	'FieldPermissions.VisibilityEditGuard' => static function ( MediaWikiServices $services ) {
+	'PropertyPermissions.VisibilityEditGuard' => static function ( MediaWikiServices $services ) {
 		return new VisibilityEditGuard(
-			$services->get( 'FieldPermissions.VisibilityResolver' ),
-			$services->get( 'FieldPermissions.PermissionEvaluator' )
+			$services->get( 'PropertyPermissions.VisibilityResolver' ),
+			$services->get( 'PropertyPermissions.PermissionEvaluator' )
 		);
 	},
 ];

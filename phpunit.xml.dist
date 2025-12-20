@@ -5,7 +5,7 @@
          beStrictAboutOutputDuringTests="false">
 
     <testsuites>
-        <testsuite name="FieldPermissions Test Suite">
+        <testsuite name="PropertyPermissions Test Suite">
             <!-- Adjust if you add integration or selenium tests later -->
             <directory suffix="Test.php">./tests/phpunit</directory>
         </testsuite>
@@ -20,7 +20,7 @@
     <filter>
         <whitelist>
             <directory>../../includes</directory>
-            <directory>../FieldPermissions</directory>
+            <directory>../PropertyPermissions</directory>
         </whitelist>
     </filter>
 </phpunit>

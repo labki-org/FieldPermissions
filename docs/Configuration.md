@@ -1,6 +1,6 @@
 # Configuration Guide
 
-FieldPermissions is configured primarily through database-backed settings that you manage via the `Special:ManageVisibility` page.
+PropertyPermissions is configured primarily through database-backed settings that you manage via the `Special:ManageVisibility` page.
 
 Visibility behavior is enforced automatically across all SMW query outputs using custom `ResultPrinters`.
 
@@ -53,7 +53,7 @@ Edit the property page (e.g., `Property:Salary`) and add one or both annotations
 [[Has visibility level::Visibility:Private]]
 ```
 
-- FieldPermissions resolves the linked page (`Visibility:Private`) or the raw identifier (`Private`) to the configured numeric level.
+- PropertyPermissions resolves the linked page (`Visibility:Private`) or the raw identifier (`Private`) to the configured numeric level.
 - Example: if `Private = 20`, only users with max level ≥ 20 can see `Salary`.
 
 **B. Restrict by Specific Group**

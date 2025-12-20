@@ -1,5 +1,5 @@
 {
-	"name": "FieldPermissions",
+	"name": "PropertyPermissions",
 	"private": true,
 	"scripts": {
 		"test": "grunt test"

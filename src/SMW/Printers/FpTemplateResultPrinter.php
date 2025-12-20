@@ -1,6 +1,6 @@
 <?php
 
-namespace FieldPermissions\SMW\Printers;
+namespace PropertyPermissions\SMW\Printers;
 
 use SMW\Query\ResultPrinters\TemplateResultPrinter;
 
@@ -23,7 +23,7 @@ class FpTemplateResultPrinter extends TemplateResultPrinter {
 	 */
 	public function __construct( $format, $params = false ) {
 		wfDebugLog(
-			'fieldpermissions',
+			'propertypermissions',
 			static::class . "::__construct called (format={$format})"
 		);
 		parent::__construct( $format, (array)$params );

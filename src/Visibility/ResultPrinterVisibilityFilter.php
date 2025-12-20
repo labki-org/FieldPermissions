@@ -1,6 +1,6 @@
 <?php
 
-namespace FieldPermissions\Visibility;
+namespace PropertyPermissions\Visibility;
 
 use MediaWiki\User\UserIdentity;
 use SMW\DIProperty;
@@ -66,7 +66,7 @@ class ResultPrinterVisibilityFilter {
 			!$printRequest instanceof \SMW\Query\PrintRequest
 		) {
 			wfDebugLog(
-				'fieldpermissions',
+				'propertypermissions',
 				"RPVF::isPrintRequestVisible: Unknown print request type (" .
 				( is_object( $printRequest ) ? get_class( $printRequest ) : gettype( $printRequest ) ) .
 				"), default ALLOWED"
@@ -84,7 +84,7 @@ class ResultPrinterVisibilityFilter {
 
 		if ( !$dataItem ) {
 			wfDebugLog(
-				'fieldpermissions',
+				'propertypermissions',
 				"RPVF::isPrintRequestVisible: No dataItem extracted → ALLOW"
 			);
 			return true;
@@ -93,7 +93,7 @@ class ResultPrinterVisibilityFilter {
 		/* Non-property printouts (e.g., category, title, etc.) */
 		if ( !$dataItem instanceof DIProperty ) {
 			wfDebugLog(
-				'fieldpermissions',
+				'propertypermissions',
 				"RPVF::isPrintRequestVisible: DataItem is not DIProperty → ALLOW"
 			);
 			return true;
@@ -107,7 +107,7 @@ class ResultPrinterVisibilityFilter {
 		$visibleTo = $this->resolver->getPropertyVisibleTo( $dataItem );
 
 		wfDebugLog(
-			'fieldpermissions',
+			'propertypermissions',
 			"RPVF::isPrintRequestVisible: Property $propKey, level=$propLevel, visibleTo=[" .
 			implode( ', ', $visibleTo ) . "]"
 		);
@@ -123,7 +123,7 @@ class ResultPrinterVisibilityFilter {
 		$allowed = $this->evaluator->mayViewProperty( $user, $propLevel, $visibleTo );
 
 		wfDebugLog(
-			'fieldpermissions',
+			'propertypermissions',
 			"RPVF::isPrintRequestVisible: " .
 			( $allowed ? "ALLOW" : "BLOCK" ) .
 			" user={$user->getName()} property=$propKey"
@@ -216,7 +216,7 @@ class ResultPrinterVisibilityFilter {
 		}
 
 		wfDebugLog(
-			'fieldpermissions',
+			'propertypermissions',
 			"RPVF::extractDataItemFromPrintRequest: Unable to extract dataItem from " .
 			get_class( $printRequest )
 		);

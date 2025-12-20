@@ -1,9 +1,9 @@
 <?php
 
-namespace FieldPermissions\Visibility;
+namespace PropertyPermissions\Visibility;
 
-use FieldPermissions\Config\VisibilityLevelStore;
-use FieldPermissions\Model\VisibilityLevel;
+use PropertyPermissions\Config\VisibilityLevelStore;
+use PropertyPermissions\Model\VisibilityLevel;
 use SMW\DIProperty;
 use SMW\DIWikiPage;
 
@@ -67,7 +67,7 @@ class VisibilityResolver {
 		try {
 			$store = $this->getSMWStore();
 			if ( !$store ) {
-				wfDebugLog( 'fieldpermissions', "VisibilityResolver: No SMW store available." );
+				wfDebugLog( 'propertypermissions', "VisibilityResolver: No SMW store available." );
 				$this->propertyLevelCache[$key] = $levelValue;
 				return $levelValue;
 			}
@@ -77,7 +77,7 @@ class VisibilityResolver {
 			$visProp = new DIProperty( 'Has_visibility_level' );
 
 			wfDebugLog(
-				'fieldpermissions',
+				'propertypermissions',
 				"VisibilityResolver: Checking Has_visibility_level on property {$property->getKey()}"
 			);
 
@@ -95,7 +95,7 @@ class VisibilityResolver {
 					$resolved = $this->resolveLevelFromIdentifier( $di->getString() );
 				} else {
 					wfDebugLog(
-						'fieldpermissions',
+						'propertypermissions',
 						"VisibilityResolver: Unexpected DI type in visibility level: " . get_class( $di )
 					);
 					continue;
@@ -108,7 +108,7 @@ class VisibilityResolver {
 			}
 		} catch ( \Exception $e ) {
 			wfDebugLog(
-				'fieldpermissions',
+				'propertypermissions',
 				"VisibilityResolver: Exception resolving property level: " . $e->getMessage()
 			);
 		}
@@ -141,7 +141,7 @@ class VisibilityResolver {
 		try {
 			$store = $this->getSMWStore();
 			if ( !$store ) {
-				wfDebugLog( 'fieldpermissions', 'VisibilityResolver: No SMW store available.' );
+				wfDebugLog( 'propertypermissions', 'VisibilityResolver: No SMW store available.' );
 				$this->propertyVisibleToCache[$key] = [];
 				return [];
 			}
@@ -152,7 +152,7 @@ class VisibilityResolver {
 			$values = $store->getPropertyValues( $subject, $visProp );
 
 			wfDebugLog(
-				'fieldpermissions',
+				'propertypermissions',
 				"VisibilityResolver: Found " . count( $values ) .
 				" Visible_to values for {$property->getKey()}"
 			);
@@ -170,7 +170,7 @@ class VisibilityResolver {
 						$this->normalizeGroupName( $title->getText() );
 				} else {
 					wfDebugLog(
-						'fieldpermissions',
+						'propertypermissions',
 						"VisibilityResolver: Unexpected DI type in Visible_to: " . get_class( $di )
 					);
 					continue;
@@ -182,7 +182,7 @@ class VisibilityResolver {
 			}
 		} catch ( \Exception $e ) {
 			wfDebugLog(
-				'fieldpermissions',
+				'propertypermissions',
 				"VisibilityResolver: Exception resolving Visible_to: " . $e->getMessage()
 			);
 		}
@@ -190,7 +190,7 @@ class VisibilityResolver {
 		$groups = array_values( array_unique( $groups ) );
 
 		wfDebugLog(
-			'fieldpermissions',
+			'propertypermissions',
 			"VisibilityResolver: Final Visible_to groups for {$property->getKey()}: "
 			. implode( ', ', $groups )
 		);

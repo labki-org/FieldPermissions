@@ -1,8 +1,8 @@
-# FieldPermissions Architecture
+# PropertyPermissions Architecture
 
 ## Overview
 
-FieldPermissions provides fine-grained, property-level visibility control for Semantic MediaWiki (SMW).
+PropertyPermissions provides fine-grained, property-level visibility control for Semantic MediaWiki (SMW).
 
 For SMW 6.x, it implements a Tier-2 filtering architecture, which overrides SMW’s `ResultPrinter` classes so that visibility is enforced during query rendering, after SMW builds the query but before it retrieves and formats results.
 
@@ -66,7 +66,7 @@ Unlike Tier-1 filtering (which manipulates SMW Query objects directly), Tier-2 f
 
 #### 3.1 Printer Overrides: ResultPrinter Mapping
 
-FieldPermissions does not use `SMW::ResultPrinter::Register` directly. Instead, it overrides:
+PropertyPermissions does not use `SMW::ResultPrinter::Register` directly. Instead, it overrides:
 
 - `smwgResultFormats` within `SMW::Settings::BeforeInitializationComplete`
 - The global `$smwgResultFormats` array during `SetupAfterCache`

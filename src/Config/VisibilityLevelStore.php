@@ -1,8 +1,8 @@
 <?php
 
-namespace FieldPermissions\Config;
+namespace PropertyPermissions\Config;
 
-use FieldPermissions\Model\VisibilityLevel;
+use PropertyPermissions\Model\VisibilityLevel;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\ILoadBalancer;
 
@@ -98,7 +98,7 @@ class VisibilityLevelStore {
 		);
 
 		wfDebugLog(
-			'fieldpermissions',
+			'propertypermissions',
 			"[VisibilityLevelStore] Added level: '{$name}' (numeric={$numericLevel})"
 		);
 	}
@@ -126,7 +126,7 @@ class VisibilityLevelStore {
 		);
 
 		wfDebugLog(
-			'fieldpermissions',
+			'propertypermissions',
 			"[VisibilityLevelStore] Updated level ID={$id} to '{$name}' (numeric={$numericLevel})"
 		);
 	}
@@ -146,7 +146,7 @@ class VisibilityLevelStore {
 		);
 
 		wfDebugLog(
-			'fieldpermissions',
+			'propertypermissions',
 			"[VisibilityLevelStore] Deleted level ID={$id}"
 		);
 	}

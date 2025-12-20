@@ -1,6 +1,6 @@
 <?php
 
-namespace FieldPermissions\Config;
+namespace PropertyPermissions\Config;
 
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\ILoadBalancer;
@@ -125,7 +125,7 @@ class GroupLevelStore {
 		);
 
 		wfDebugLog(
-			'fieldpermissions',
+			'propertypermissions',
 			"[GroupLevelStore] Updated group '{$groupName}' → max_level={$maxLevel}"
 		);
 	}
@@ -145,7 +145,7 @@ class GroupLevelStore {
 		);
 
 		wfDebugLog(
-			'fieldpermissions',
+			'propertypermissions',
 			"[GroupLevelStore] Removed mapping for group '{$groupName}'"
 		);
 	}

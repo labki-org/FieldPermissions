@@ -2,18 +2,18 @@
 set -euo pipefail
 
 #
-# FieldPermissions — Comprehensive Test Data Population Script
+# PropertyPermissions — Comprehensive Test Data Population Script
 # Creates a realistic test environment with varied properties, employees, and queries
 #
 
 get_cache_dir() {
     case "$(uname -s)" in
-        Darwin*) echo "$HOME/Library/Caches/fieldpermissions" ;;
+        Darwin*) echo "$HOME/Library/Caches/propertypermissions" ;;
         MINGW*|MSYS*|CYGWIN*)
             local appdata="${LOCALAPPDATA:-$HOME/AppData/Local}"
-            echo "$appdata/fieldpermissions"
+            echo "$appdata/propertypermissions"
             ;;
-        *) echo "${XDG_CACHE_HOME:-$HOME/.cache}/fieldpermissions" ;;
+        *) echo "${XDG_CACHE_HOME:-$HOME/.cache}/propertypermissions" ;;
     esac
 }
 
@@ -21,7 +21,7 @@ get_cache_dir() {
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CACHE_BASE="$(get_cache_dir)"
-MW_DIR="${MW_DIR:-$CACHE_BASE/mediawiki-FieldPermissions-test}"
+MW_DIR="${MW_DIR:-$CACHE_BASE/mediawiki-PropertyPermissions-test}"
 CONTAINER_WIKI="/var/www/html/w"
 MW_ADMIN_USER="${MW_ADMIN_USER:-Admin}"
 MW_PORT="${MW_PORT:-8888}"
@@ -70,7 +70,7 @@ create_user() {
 # ---------------- MAIN ----------------
 
 echo "=========================================="
-echo "FieldPermissions Test Data Population"
+echo "PropertyPermissions Test Data Population"
 echo "=========================================="
 echo ""
 
@@ -90,10 +90,10 @@ fi
 # 1. SEED DATABASE TABLES
 # ============================================
 echo ""
-echo "==> [1/7] Seeding FieldPermissions database tables..."
-docker compose cp "$SCRIPT_DIR/../maintenance/seed_db.php" mediawiki:"$CONTAINER_WIKI/extensions/FieldPermissions/maintenance/seed_db.php" 2>/dev/null || \
-docker compose cp "$SCRIPT_DIR/seed_db.php" mediawiki:"$CONTAINER_WIKI/extensions/FieldPermissions/maintenance/seed_db.php" 2>/dev/null || true
-docker compose exec -T mediawiki php "$CONTAINER_WIKI/extensions/FieldPermissions/maintenance/seed_db.php"
+echo "==> [1/7] Seeding PropertyPermissions database tables..."
+docker compose cp "$SCRIPT_DIR/../maintenance/seed_db.php" mediawiki:"$CONTAINER_WIKI/extensions/PropertyPermissions/maintenance/seed_db.php" 2>/dev/null || \
+docker compose cp "$SCRIPT_DIR/seed_db.php" mediawiki:"$CONTAINER_WIKI/extensions/PropertyPermissions/maintenance/seed_db.php" 2>/dev/null || true
+docker compose exec -T mediawiki php "$CONTAINER_WIKI/extensions/PropertyPermissions/maintenance/seed_db.php"
 
 # ============================================
 # 2. CREATE METADATA PROPERTIES

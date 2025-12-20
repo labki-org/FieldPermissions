@@ -1,9 +1,9 @@
 <?php
 
-namespace FieldPermissions\Visibility;
+namespace PropertyPermissions\Visibility;
 
-use FieldPermissions\Config\GroupLevelStore;
-use FieldPermissions\Model\UserVisibilityProfile;
+use PropertyPermissions\Config\GroupLevelStore;
+use PropertyPermissions\Model\UserVisibilityProfile;
 use MediaWiki\User\UserGroupManager;
 use MediaWiki\User\UserIdentity;
 
@@ -81,7 +81,7 @@ class PermissionEvaluator {
 		) );
 
 		wfDebugLog(
-			'fieldpermissions',
+			'propertypermissions',
 			"PermissionEvaluator: User {$user->getName()} effective groups: "
 				. implode( ', ', $normalizedGroups )
 		);
@@ -103,7 +103,7 @@ class PermissionEvaluator {
 			$groupLevel = $this->groupStore->getGroupMaxLevel( $group );
 
 			wfDebugLog(
-				'fieldpermissions',
+				'propertypermissions',
 				"PermissionEvaluator: Group '$group' max level: " .
 				( $groupLevel !== null ? $groupLevel : 'NULL (not set)' )
 			);
@@ -114,7 +114,7 @@ class PermissionEvaluator {
 		}
 
 		wfDebugLog(
-			'fieldpermissions',
+			'propertypermissions',
 			"PermissionEvaluator: User {$user->getName()} final resolved max level = $maxLevel"
 		);
 
@@ -159,7 +159,7 @@ class PermissionEvaluator {
 			foreach ( $visibleToGroups as $allowedGroup ) {
 				if ( in_array( $allowedGroup, $userGroups, true ) ) {
 					wfDebugLog(
-						'fieldpermissions',
+						'propertypermissions',
 						"PermissionEvaluator: Access allowed—user group match ($allowedGroup)"
 					);
 					return true;
@@ -167,7 +167,7 @@ class PermissionEvaluator {
 			}
 
 			wfDebugLog(
-				'fieldpermissions',
+				'propertypermissions',
 				"PermissionEvaluator: Access denied—user {$user->getName()} lacks required VisibleTo group(s) "
 					. implode( ', ', $visibleToGroups )
 			);
@@ -186,7 +186,7 @@ class PermissionEvaluator {
 		}
 
 		wfDebugLog(
-			'fieldpermissions',
+			'propertypermissions',
 			"PermissionEvaluator: Access denied—user max level $userMax < property level $propLevel"
 		);
 

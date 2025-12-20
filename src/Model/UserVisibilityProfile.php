@@ -1,6 +1,6 @@
 <?php
 
-namespace FieldPermissions\Model;
+namespace PropertyPermissions\Model;
 
 /**
  * UserVisibilityProfile

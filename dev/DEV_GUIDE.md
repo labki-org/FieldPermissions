@@ -1,8 +1,8 @@
-# FieldPermissions Development Guide
+# PropertyPermissions Development Guide
 
-This directory contains tools for running FieldPermissions inside a full MediaWiki environment (using `labki-platform`) and executing the extension's PHPUnit test suite.
+This directory contains tools for running PropertyPermissions inside a full MediaWiki environment (using `labki-platform`) and executing the extension's PHPUnit test suite.
 
-## Run MediaWiki + FieldPermissions
+## Run MediaWiki + PropertyPermissions
 
 The environment is defined in `docker-compose.yml` in the root of the extension.
 
@@ -44,19 +44,19 @@ Inside the running MediaWiki container (service name `wiki`):
 ```bash
 docker compose exec -T wiki php tests/phpunit/phpunit.php \
   --testsuite extensions \
-  --filter FieldPermissions
+  --filter PropertyPermissions
 ```
 
 Or run the full extension suite:
 
 ```bash
-docker compose exec wiki bash -lc 'composer phpunit:entrypoint -- extensions/FieldPermissions/tests/phpunit'
+docker compose exec wiki bash -lc 'composer phpunit:entrypoint -- extensions/PropertyPermissions/tests/phpunit'
 ```
 
 Tests live in:
 
 ```
-extensions/FieldPermissions/tests/phpunit/
+extensions/PropertyPermissions/tests/phpunit/
 ```
 
 ## Clean and Reset Environment

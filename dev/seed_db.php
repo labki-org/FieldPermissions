@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Maintenance script to seed FieldPermissions DB tables with test data.
+ * Maintenance script to seed PropertyPermissions DB tables with test data.
  */
 
 use MediaWiki\MediaWikiServices;
@@ -9,16 +9,16 @@ use MediaWiki\MediaWikiServices;
 require_once __DIR__ . '/../../../maintenance/Maintenance.php';
 
 // phpcs:disable MediaWiki.Files.ClassMatchesFilename.NotMatch
-class SeedFieldPermissions extends Maintenance {
+class SeedPropertyPermissions extends Maintenance {
 	public function __construct() {
 		parent::__construct();
-		$this->addDescription( 'Seeds FieldPermissions tables with test data' );
+		$this->addDescription( 'Seeds PropertyPermissions tables with test data' );
 	}
 
 	public function execute() {
 		$services = MediaWikiServices::getInstance();
-		$levelStore = $services->get( 'FieldPermissions.VisibilityLevelStore' );
-		$groupStore = $services->get( 'FieldPermissions.GroupLevelStore' );
+		$levelStore = $services->get( 'PropertyPermissions.VisibilityLevelStore' );
+		$groupStore = $services->get( 'PropertyPermissions.GroupLevelStore' );
 
 		// Clean existing
 		// Assuming simple delete if needed, but let's just add if not exists
@@ -73,5 +73,5 @@ class SeedFieldPermissions extends Maintenance {
 	}
 }
 
-$maintClass = SeedFieldPermissions::class;
+$maintClass = SeedPropertyPermissions::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

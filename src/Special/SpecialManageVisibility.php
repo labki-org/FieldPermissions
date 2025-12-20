@@ -1,9 +1,9 @@
 <?php
 
-namespace FieldPermissions\Special;
+namespace PropertyPermissions\Special;
 
-use FieldPermissions\Config\GroupLevelStore;
-use FieldPermissions\Config\VisibilityLevelStore;
+use PropertyPermissions\Config\GroupLevelStore;
+use PropertyPermissions\Config\VisibilityLevelStore;
 use HTMLForm;
 use MediaWiki\Html\Html;
 use MediaWiki\MediaWikiServices;
@@ -57,9 +57,9 @@ class SpecialManageVisibility extends SpecialPage {
 		$services = MediaWikiServices::getInstance();
 
 		/** @var VisibilityLevelStore $store */
-		$store = $services->get( 'FieldPermissions.VisibilityLevelStore' );
+		$store = $services->get( 'PropertyPermissions.VisibilityLevelStore' );
 
-		$out->addWikiMsg( 'fieldpermissions-manage-levels-header' );
+		$out->addWikiMsg( 'propertypermissions-manage-levels-header' );
 
 		/* -------------------------------------------------------------
 		   Handle deletion (POST)
@@ -68,7 +68,7 @@ class SpecialManageVisibility extends SpecialPage {
 			$id = $request->getInt( 'id' );
 			if ( $id ) {
 				$store->deleteLevel( $id );
-				$out->addWikiMsg( 'fieldpermissions-level-deleted' );
+				$out->addWikiMsg( 'propertypermissions-level-deleted' );
 			}
 			$out->redirect( $this->getPageTitle()->getFullURL() );
 			return;
@@ -80,28 +80,28 @@ class SpecialManageVisibility extends SpecialPage {
 		$formDescriptor = [
 			'vl_name' => [
 				'type' => 'text',
-				'label-message' => 'fieldpermissions-level-name',
+				'label-message' => 'propertypermissions-level-name',
 				'required' => true,
 				'validation-callback' => function ( $val ) {
 					return preg_match( '/^[a-zA-Z0-9_]+$/', $val )
 						? true
-						: $this->msg( 'fieldpermissions-invalid-level-name' )->text();
+						: $this->msg( 'propertypermissions-invalid-level-name' )->text();
 				},
 			],
 			'vl_numeric_level' => [
 				'type' => 'int',
-				'label-message' => 'fieldpermissions-numeric-level',
+				'label-message' => 'propertypermissions-numeric-level',
 				'required' => true,
 			],
 			'vl_page_title' => [
 				'type' => 'text',
-				'label-message' => 'fieldpermissions-page-title',
-				'help-message' => 'fieldpermissions-page-title-help',
+				'label-message' => 'propertypermissions-page-title',
+				'help-message' => 'propertypermissions-page-title-help',
 			],
 		];
 
 		$htmlForm = HTMLForm::factory( 'ooui', $formDescriptor, $appCtx );
-		$htmlForm->setSubmitTextMsg( 'fieldpermissions-add-level' );
+		$htmlForm->setSubmitTextMsg( 'propertypermissions-add-level' );
 
 		$htmlForm->setSubmitCallback( static function ( $data ) use ( $store ) {
 			try {
@@ -188,12 +188,12 @@ class SpecialManageVisibility extends SpecialPage {
 		$services = MediaWikiServices::getInstance();
 
 		/** @var GroupLevelStore $groupStore */
-		$groupStore = $services->get( 'FieldPermissions.GroupLevelStore' );
+		$groupStore = $services->get( 'PropertyPermissions.GroupLevelStore' );
 
 		/** @var VisibilityLevelStore $levelStore */
-		$levelStore = $services->get( 'FieldPermissions.VisibilityLevelStore' );
+		$levelStore = $services->get( 'PropertyPermissions.VisibilityLevelStore' );
 
-		$out->addWikiMsg( 'fieldpermissions-manage-groups-header' );
+		$out->addWikiMsg( 'propertypermissions-manage-groups-header' );
 
 		/* -------------------------------------------------------------
 		   Handle group deletion
@@ -221,19 +221,19 @@ class SpecialManageVisibility extends SpecialPage {
 		$formDescriptor = [
 			'gl_group_name' => [
 				'type' => 'text',
-				'label-message' => 'fieldpermissions-group-name',
+				'label-message' => 'propertypermissions-group-name',
 				'required' => true,
 			],
 			'gl_max_level' => [
 				'type' => 'select',
 				'options' => $levelOptions,
-				'label-message' => 'fieldpermissions-max-level',
+				'label-message' => 'propertypermissions-max-level',
 				'required' => true,
 			],
 		];
 
 		$htmlForm = HTMLForm::factory( 'ooui', $formDescriptor, $appCtx );
-		$htmlForm->setSubmitTextMsg( 'fieldpermissions-set-group-level' );
+		$htmlForm->setSubmitTextMsg( 'propertypermissions-set-group-level' );
 
 		$htmlForm->setSubmitCallback( static function ( $data ) use ( $groupStore ) {
 			try {

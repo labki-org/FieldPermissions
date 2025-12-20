@@ -23,12 +23,12 @@
 	},
 	"autoload": {
 		"psr-4": {
-			"FieldPermissions\\": "src/"
+			"PropertyPermissions\\": "src/"
 		}
 	},
 	"autoload-dev": {
 		"psr-4": {
-			"FieldPermissions\\Tests\\": "tests/phpunit/"
+			"PropertyPermissions\\Tests\\": "tests/phpunit/"
 		}
 	},
 	"config": {

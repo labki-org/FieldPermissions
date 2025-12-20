@@ -1,6 +1,6 @@
 <?php
 
-namespace FieldPermissions\SMW;
+namespace PropertyPermissions\SMW;
 
 use SMW\Query\ResultPrinterFactory;
 use SMW\Query\ResultPrinters\ResultPrinter;
@@ -13,9 +13,9 @@ class DebugResultPrinterFactory extends ResultPrinterFactory {
 	 * @return ResultPrinter
 	 */
 	public function newPrinter( $format, array $params = [] ): ResultPrinter {
-		wfDebugLog( 'fieldpermissions', "DebugResultPrinterFactory: SMW is requesting format=$format" );
+		wfDebugLog( 'propertypermissions', "DebugResultPrinterFactory: SMW is requesting format=$format" );
 		$printer = parent::newPrinter( $format, $params );
-		wfDebugLog( 'fieldpermissions', "DebugResultPrinterFactory: Returned printer class " . get_class( $printer ) );
+		wfDebugLog( 'propertypermissions', "DebugResultPrinterFactory: Returned printer class " . get_class( $printer ) );
 		return $printer;
 	}
 }

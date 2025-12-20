@@ -1,9 +1,9 @@
 {
-	"name": "FieldPermissions",
+	"name": "PropertyPermissions",
 	"version": "2.0.0",
 	"author": "Daniel Aharoni",
-	"url": "https://www.mediawiki.org/wiki/Extension:FieldPermissions",
-	"descriptionmsg": "fieldpermissions-desc",
+	"url": "https://www.mediawiki.org/wiki/Extension:PropertyPermissions",
+	"descriptionmsg": "propertypermissions-desc",
 	"license-name": "GPL-2.0-or-later",
 	"type": "extension",
 	"manifest_version": 2,
@@ -17,57 +17,57 @@
 	},
 
 	"MessagesDirs": {
-		"FieldPermissions": [
+		"PropertyPermissions": [
 			"i18n"
 		]
 	},
 
 	"ExtensionMessagesFiles": {
-		"FieldPermissionsAlias": "i18n/FieldPermissions.alias.php"
+		"PropertyPermissionsAlias": "i18n/PropertyPermissions.alias.php"
 	},
 
 	"AutoloadNamespaces": {
-		"FieldPermissions\\": "src/"
+		"PropertyPermissions\\": "src/"
 	},
 
 	"AutoloadClasses": {
-		"FieldPermissions\\Hooks": "src/Hooks.php"
+		"PropertyPermissions\\Hooks": "src/Hooks.php"
 	},
 
 	"ExtensionFunctions": [
-		"FieldPermissions\\Hooks::onExtensionFunction"
+		"PropertyPermissions\\Hooks::onExtensionFunction"
 	],
 
 	"Hooks": {
 
 		"SMW::Settings::BeforeInitializationComplete":
-            "FieldPermissions\\Hooks::onSMWSettingsBeforeInitializationComplete",
+            "PropertyPermissions\\Hooks::onSMWSettingsBeforeInitializationComplete",
 
 		"SMW::Factbox::BeforeContentGeneration":
-            "FieldPermissions\\Hooks::onSMWFactboxBeforeContentGeneration",
+            "PropertyPermissions\\Hooks::onSMWFactboxBeforeContentGeneration",
 
 		"BeforePageDisplay":
-            "FieldPermissions\\Hooks::onBeforePageDisplay",
+            "PropertyPermissions\\Hooks::onBeforePageDisplay",
 
 		"PageRenderingHash":
-            "FieldPermissions\\Hooks::onPageRenderingHash",
+            "PropertyPermissions\\Hooks::onPageRenderingHash",
 
 		"LoadExtensionSchemaUpdates":
-            "FieldPermissions\\Hooks::onLoadExtensionSchemaUpdates",
+            "PropertyPermissions\\Hooks::onLoadExtensionSchemaUpdates",
 
 		"GetUserPermissionsErrors":
-            "FieldPermissions\\Hooks::onGetUserPermissionsErrors",
+            "PropertyPermissions\\Hooks::onGetUserPermissionsErrors",
 
 		"MultiContentSave":
-            "FieldPermissions\\Hooks::onMultiContentSave"
+            "PropertyPermissions\\Hooks::onMultiContentSave"
 	},
 
 	"ServiceWiringFiles": {
-		"FieldPermissions": "src/ServiceWiring.php"
+		"PropertyPermissions": "src/ServiceWiring.php"
 	},
 
 	"SpecialPages": {
-		"ManageVisibility": "FieldPermissions\\Special\\SpecialManageVisibility"
+		"ManageVisibility": "PropertyPermissions\\Special\\SpecialManageVisibility"
 	},
 
 	"AvailableRights": [

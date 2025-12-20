@@ -1,8 +1,8 @@
 <?php
 
-namespace FieldPermissions\SMW\Printers;
+namespace PropertyPermissions\SMW\Printers;
 
-use FieldPermissions\Visibility\ResultPrinterVisibilityFilter;
+use PropertyPermissions\Visibility\ResultPrinterVisibilityFilter;
 use MediaWiki\Context\RequestContext;
 use MediaWiki\MediaWikiServices;
 use ReflectionClass;
@@ -41,7 +41,7 @@ trait PrinterFilterTrait {
 	protected function getVisibilityFilter(): ResultPrinterVisibilityFilter {
 		if ( $this->visibilityFilter === null ) {
 			$this->visibilityFilter =
-				MediaWikiServices::getInstance()->get( 'FieldPermissions.ResultPrinterVisibilityFilter' );
+				MediaWikiServices::getInstance()->get( 'PropertyPermissions.ResultPrinterVisibilityFilter' );
 		}
 		return $this->visibilityFilter;
 	}
@@ -59,16 +59,16 @@ trait PrinterFilterTrait {
 	public function getResultText( QueryResult $queryResult, $outputMode ) {
 		$user = RequestContext::getMain()->getUser();
 
-		wfDebugLog( 'fieldpermissions', "----------------------------------------" );
-		wfDebugLog( 'fieldpermissions', static::class . "::getResultText called" );
-		wfDebugLog( 'fieldpermissions', "User: {$user->getName()} (ID: {$user->getId()})" );
+		wfDebugLog( 'propertypermissions', "----------------------------------------" );
+		wfDebugLog( 'propertypermissions', static::class . "::getResultText called" );
+		wfDebugLog( 'propertypermissions', "User: {$user->getName()} (ID: {$user->getId()})" );
 
 		$this->filterPrintRequests( $queryResult );
 
 		$result = parent::getResultText( $queryResult, $outputMode );
 
-		wfDebugLog( 'fieldpermissions', static::class . "::getResultText completed" );
-		wfDebugLog( 'fieldpermissions', "----------------------------------------" );
+		wfDebugLog( 'propertypermissions', static::class . "::getResultText completed" );
+		wfDebugLog( 'propertypermissions', "----------------------------------------" );
 
 		return $result;
 	}
@@ -84,7 +84,7 @@ trait PrinterFilterTrait {
 		$filter = $this->getVisibilityFilter();
 
 		wfDebugLog(
-			'fieldpermissions',
+			'propertypermissions',
 			"PrinterFilterTrait::filterPrintRequests called for user {$user->getName()}"
 		);
 
@@ -92,7 +92,7 @@ trait PrinterFilterTrait {
 			$propertyName = $this->detectPrintRequestPropertyName( $queryResult );
 
 			if ( $propertyName === null ) {
-				wfDebugLog( 'fieldpermissions',
+				wfDebugLog( 'propertypermissions',
 					"PrinterFilterTrait: Unable to locate print request property on QueryResult."
 				);
 				return;
@@ -102,13 +102,13 @@ trait PrinterFilterTrait {
 
 			if ( !is_array( $requests ) ) {
 				wfDebugLog(
-					'fieldpermissions',
+					'propertypermissions',
 					"PrinterFilterTrait: Print requests not stored as array. Cannot filter."
 				);
 				return;
 			}
 
-			wfDebugLog( 'fieldpermissions',
+			wfDebugLog( 'propertypermissions',
 				"PrinterFilterTrait: Inspecting " . count( $requests ) . " print requests."
 			);
 
@@ -126,7 +126,7 @@ trait PrinterFilterTrait {
 				} else {
 					$modified = true;
 					wfDebugLog(
-						'fieldpermissions',
+						'propertypermissions',
 						"PrinterFilterTrait: Removed restricted column '{$pr->getLabel()}'"
 					);
 				}
@@ -134,12 +134,12 @@ trait PrinterFilterTrait {
 
 			if ( $modified ) {
 				$this->writePrintRequestArray( $queryResult, $propertyName, $filtered );
-				wfDebugLog( 'fieldpermissions', "PrinterFilterTrait: Filtered requests applied." );
+				wfDebugLog( 'propertypermissions', "PrinterFilterTrait: Filtered requests applied." );
 			}
 
 		} catch ( \Throwable $e ) {
 			wfDebugLog(
-				'fieldpermissions',
+				'propertypermissions',
 				"PrinterFilterTrait: Exception while filtering print requests: {$e->getMessage()}"
 			);
 		}

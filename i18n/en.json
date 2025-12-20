@@ -20,6 +20,6 @@
 	"fieldpermissions-edit-denied-visibility": "You do not have permission to edit Visibility levels.",
 	"fieldpermissions-edit-denied-property": "You do not have permission to edit this restricted property.",
 	"fieldpermissions-edit-denied-content": "You do not have permission to add visibility controls to this content.",
-    "action-fp-manage-visibility": "manage field visibility settings",
-    "right-fp-manage-visibility": "Manage field visibility settings"
+	"action-fp-manage-visibility": "manage field visibility settings",
+	"right-fp-manage-visibility": "Manage field visibility settings"
 }

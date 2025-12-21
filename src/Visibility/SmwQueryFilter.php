@@ -1,6 +1,6 @@
 <?php
 
-namespace FieldPermissions\Visibility;
+namespace PropertyPermissions\Visibility;
 
 use MediaWiki\Context\RequestContext;
 use SMW\DIProperty;
@@ -55,13 +55,13 @@ class SmwQueryFilter {
 	 * This method removes prohibited properties entirely.
 	 *
 	 * @param DIWikiPage $subject
-	 * @param array      &$properties  (modified in-place)
+	 * @param array &$properties (modified in-place)
 	 */
 	public function filterFactboxProperties( DIWikiPage $subject, array &$properties ): void {
 		$user = RequestContext::getMain()->getUser();
 
 		wfDebugLog(
-			'fieldpermissions',
+			'propertypermissions',
 			"SmwQueryFilter: Filtering Factbox for " . $subject->getTitle()->getPrefixedText() .
 			" (User=" . $user->getName() . ")"
 		);
@@ -86,12 +86,12 @@ class SmwQueryFilter {
 			if ( !$this->evaluator->mayViewProperty( $user, $level, $visibleTo ) ) {
 				unset( $properties[$key] );
 				wfDebugLog(
-					'fieldpermissions',
+					'propertypermissions',
 					"SmwQueryFilter: HIDDEN Factbox property '{$propertyKey}' for user '" . $user->getName() . "'"
 				);
 			} else {
 				wfDebugLog(
-					'fieldpermissions',
+					'propertypermissions',
 					"SmwQueryFilter: ALLOW Factbox property '{$propertyKey}' for user '" . $user->getName() . "'"
 				);
 			}

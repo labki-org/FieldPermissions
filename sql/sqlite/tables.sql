@@ -1,4 +1,4 @@
--- FieldPermissions Schema (SQLite)
+-- PropertyPermissions Schema (SQLite)
 
 CREATE TABLE /*_*/fp_visibility_levels (
     vl_id INTEGER PRIMARY KEY AUTOINCREMENT,

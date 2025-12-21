@@ -22,4 +22,3 @@ module.exports = function ( grunt ) {
 	grunt.registerTask( 'test', [ 'eslint', 'banana' ] );
 	grunt.registerTask( 'default', 'test' );
 };
-

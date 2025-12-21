@@ -1,5 +1,5 @@
 {
-	"name": "FieldPermissions",
+	"name": "PropertyPermissions",
 	"private": true,
 	"scripts": {
 		"test": "grunt test"
@@ -11,4 +11,3 @@
 		"grunt-eslint": "24.3.0"
 	}
 }
-

@@ -1,10 +1,10 @@
 <?php
 
-namespace FieldPermissions\Config;
+namespace PropertyPermissions\Config;
 
-use Wikimedia\Rdbms\ILoadBalancer;
+use PropertyPermissions\Model\VisibilityLevel;
 use Wikimedia\Rdbms\IDatabase;
-use FieldPermissions\Model\VisibilityLevel;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * VisibilityLevelStore
@@ -80,8 +80,8 @@ class VisibilityLevelStore {
 	/**
 	 * Insert a new visibility level.
 	 *
-	 * @param string      $name
-	 * @param int         $numericLevel
+	 * @param string $name
+	 * @param int $numericLevel
 	 * @param string|null $pageTitle
 	 */
 	public function addLevel( string $name, int $numericLevel, ?string $pageTitle = null ): void {
@@ -98,7 +98,7 @@ class VisibilityLevelStore {
 		);
 
 		wfDebugLog(
-			'fieldpermissions',
+			'propertypermissions',
 			"[VisibilityLevelStore] Added level: '{$name}' (numeric={$numericLevel})"
 		);
 	}
@@ -106,9 +106,9 @@ class VisibilityLevelStore {
 	/**
 	 * Update an existing visibility level.
 	 *
-	 * @param int         $id
-	 * @param string      $name
-	 * @param int         $numericLevel
+	 * @param int $id
+	 * @param string $name
+	 * @param int $numericLevel
 	 * @param string|null $pageTitle
 	 */
 	public function updateLevel( int $id, string $name, int $numericLevel, ?string $pageTitle = null ): void {
@@ -126,7 +126,7 @@ class VisibilityLevelStore {
 		);
 
 		wfDebugLog(
-			'fieldpermissions',
+			'propertypermissions',
 			"[VisibilityLevelStore] Updated level ID={$id} to '{$name}' (numeric={$numericLevel})"
 		);
 	}
@@ -146,7 +146,7 @@ class VisibilityLevelStore {
 		);
 
 		wfDebugLog(
-			'fieldpermissions',
+			'propertypermissions',
 			"[VisibilityLevelStore] Deleted level ID={$id}"
 		);
 	}
@@ -179,4 +179,3 @@ class VisibilityLevelStore {
 		);
 	}
 }
-

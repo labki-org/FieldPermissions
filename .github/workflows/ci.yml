@@ -7,7 +7,7 @@ on:
     branches: ['**']
 
 concurrency:
-  group: fieldpermissions-${{ github.workflow }}-${{ github.ref }}
+  group: propertypermissions-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -51,11 +51,11 @@ jobs:
       - name: Enable extension
         run: |
           mkdir -p mediawiki/extensions
-          ln -s "$(pwd)/extension" "mediawiki/extensions/FieldPermissions"
-          echo "wfLoadExtension( 'FieldPermissions' );" >> mediawiki/LocalSettings.php
-          echo "\$wgFieldPermissionsLevels = ['public'=>0, 'internal'=>10, 'sensitive'=>20];" >> mediawiki/LocalSettings.php
-          echo "\$wgFieldPermissionsGroupMaxLevel = ['*'=>'public', 'user'=>'public', 'lab_member'=>'internal', 'pi'=>'sensitive'];" >> mediawiki/LocalSettings.php
-          echo "\$wgFieldPermissionsGroupSets = ['all_admins'=>['sysop','pi']];" >> mediawiki/LocalSettings.php
+          ln -s "$(pwd)/extension" "mediawiki/extensions/PropertyPermissions"
+          echo "wfLoadExtension( 'PropertyPermissions' );" >> mediawiki/LocalSettings.php
+          echo "\$wgPropertyPermissionsLevels = ['public'=>0, 'internal'=>10, 'sensitive'=>20];" >> mediawiki/LocalSettings.php
+          echo "\$wgPropertyPermissionsGroupMaxLevel = ['*'=>'public', 'user'=>'public', 'lab_member'=>'internal', 'pi'=>'sensitive'];" >> mediawiki/LocalSettings.php
+          echo "\$wgPropertyPermissionsGroupSets = ['all_admins'=>['sysop','pi']];" >> mediawiki/LocalSettings.php
           echo "\$wgCacheDirectory = \"\$IP/cache\";" >> mediawiki/LocalSettings.php
 
       - name: Update DB schema
@@ -65,8 +65,8 @@ jobs:
       - name: PHPUnit tests
         working-directory: mediawiki
         run: |
-          if [ -d "extensions/FieldPermissions/tests/phpunit" ]; then
-            composer phpunit:entrypoint -- extensions/FieldPermissions/tests/phpunit
+          if [ -d "extensions/PropertyPermissions/tests/phpunit" ]; then
+            composer phpunit:entrypoint -- extensions/PropertyPermissions/tests/phpunit
           else
             echo "No tests directory found; skipping."
           fi

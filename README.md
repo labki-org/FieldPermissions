@@ -1,6 +1,6 @@
-# FieldPermissions - Fine-Grained Field Visibility for MediaWiki + Semantic MediaWiki
+# PropertyPermissions - Fine-Grained Field Visibility for MediaWiki + Semantic MediaWiki
 
-FieldPermissions provides property-level access control in MediaWiki using Semantic MediaWiki (SMW).
+PropertyPermissions provides property-level access control in MediaWiki using Semantic MediaWiki (SMW).
 
 It allows you to restrict the visibility of individual SMW properties based on:
 
@@ -59,13 +59,13 @@ Parser cache varies by user visibility profile, preventing privilege leakage.
 
    ```bash
    cd /path/to/mediawiki/extensions
-   git clone https://github.com/your-repo/FieldPermissions.git
+   git clone https://github.com/your-repo/PropertyPermissions.git
    ```
 
 2. Enable the extension
 
    ```php
-   wfLoadExtension( 'FieldPermissions' );
+   wfLoadExtension( 'PropertyPermissions' );
    ```
 
 3. Run schema updates
@@ -166,7 +166,7 @@ SMW builds a registry of printer classes using the setting:
 
 `$smwgResultFormats`
 
-FieldPermissions overrides this mapping early:
+PropertyPermissions overrides this mapping early:
 
 - During `SMW::Settings::BeforeInitializationComplete`
 - Reinforced in `SetupAfterCache`
@@ -191,7 +191,7 @@ Each custom printer:
 
 MediaWiki normally caches pages without considering user permissions.
 
-FieldPermissions injects:
+PropertyPermissions injects:
 
 - viewer max visibility level
 - viewer group list

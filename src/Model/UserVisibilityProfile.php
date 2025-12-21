@@ -1,6 +1,6 @@
 <?php
 
-namespace FieldPermissions\Model;
+namespace PropertyPermissions\Model;
 
 /**
  * UserVisibilityProfile
@@ -27,8 +27,8 @@ class UserVisibilityProfile {
 	private array $groups;
 
 	/**
-	 * @param int      $maxLevel User's maximum allowed visibility level
-	 * @param string[] $groups   List of user groups (canonical group names)
+	 * @param int $maxLevel User's maximum allowed visibility level
+	 * @param string[] $groups List of user groups (canonical group names)
 	 */
 	public function __construct( int $maxLevel, array $groups ) {
 		$this->maxLevel = $maxLevel;
@@ -53,4 +53,3 @@ class UserVisibilityProfile {
 		return $this->groups;
 	}
 }
-

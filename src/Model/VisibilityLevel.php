@@ -1,6 +1,6 @@
 <?php
 
-namespace FieldPermissions\Model;
+namespace PropertyPermissions\Model;
 
 /**
  * VisibilityLevel
@@ -34,10 +34,10 @@ class VisibilityLevel {
 	private ?string $pageTitle;
 
 	/**
-	 * @param int         $id           Internal DB ID
-	 * @param string      $name         Display name
-	 * @param int         $numericLevel Restriction level (0 = public, higher = restricted)
-	 * @param string|null $pageTitle    Optional wiki page where level details are explained
+	 * @param int $id Internal DB ID
+	 * @param string $name Display name
+	 * @param int $numericLevel Restriction level (0 = public, higher = restricted)
+	 * @param string|null $pageTitle Optional wiki page where level details are explained
 	 */
 	public function __construct( int $id, string $name, int $numericLevel, ?string $pageTitle = null ) {
 		$this->id = $id;
@@ -66,4 +66,3 @@ class VisibilityLevel {
 		return $this->pageTitle;
 	}
 }
-

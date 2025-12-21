@@ -7,18 +7,18 @@ set -euo pipefail
 
 get_cache_dir() {
     case "$(uname -s)" in
-        Darwin*) echo "$HOME/Library/Caches/fieldpermissions" ;;
+        Darwin*) echo "$HOME/Library/Caches/propertypermissions" ;;
         MINGW*|MSYS*|CYGWIN*)
             local appdata="${LOCALAPPDATA:-$HOME/AppData/Local}"
-            echo "$appdata/fieldpermissions"
+            echo "$appdata/propertypermissions"
             ;;
-        *) echo "${XDG_CACHE_HOME:-$HOME/.cache}/fieldpermissions" ;;
+        *) echo "${XDG_CACHE_HOME:-$HOME/.cache}/propertypermissions" ;;
     esac
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CACHE_BASE="$(get_cache_dir)"
-MW_DIR="${MW_DIR:-$CACHE_BASE/mediawiki-FieldPermissions-test}"
+MW_DIR="${MW_DIR:-$CACHE_BASE/mediawiki-PropertyPermissions-test}"
 CONTAINER_WIKI="/var/www/html/w"
 
 if [ ! -d "$MW_DIR" ]; then

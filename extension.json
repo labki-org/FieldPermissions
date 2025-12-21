@@ -1,84 +1,84 @@
 {
-    "name": "FieldPermissions",
-    "version": "2.0.0",
-    "author": "Daniel Aharoni",
-    "url": "https://www.mediawiki.org/wiki/Extension:FieldPermissions",
-    "descriptionmsg": "fieldpermissions-desc",
-    "license-name": "GPL-2.0-or-later",
-    "type": "extension",
-    "manifest_version": 2,
+	"name": "PropertyPermissions",
+	"version": "2.0.0",
+	"author": "Daniel Aharoni",
+	"url": "https://www.mediawiki.org/wiki/Extension:PropertyPermissions",
+	"descriptionmsg": "propertypermissions-desc",
+	"license-name": "GPL-2.0-or-later",
+	"type": "extension",
+	"manifest_version": 2,
 
-    "requires": {
-        "MediaWiki": ">=1.39"
-    },
+	"requires": {
+		"MediaWiki": ">=1.39"
+	},
 
-    "LoadAfter": {
-        "SemanticMediaWiki": "*"
-    },
+	"LoadAfter": {
+		"SemanticMediaWiki": "*"
+	},
 
-    "MessagesDirs": {
-        "FieldPermissions": [
-            "i18n"
-        ]
-    },
+	"MessagesDirs": {
+		"PropertyPermissions": [
+			"i18n"
+		]
+	},
 
-    "ExtensionMessagesFiles": {
-        "FieldPermissionsAlias": "i18n/FieldPermissions.alias.php"
-    },
+	"ExtensionMessagesFiles": {
+		"PropertyPermissionsAlias": "i18n/PropertyPermissions.alias.php"
+	},
 
-    "AutoloadNamespaces": {
-        "FieldPermissions\\": "src/"
-    },
+	"AutoloadNamespaces": {
+		"PropertyPermissions\\": "src/"
+	},
 
-    "AutoloadClasses": {
-        "FieldPermissions\\Hooks": "src/Hooks.php"
-    },
+	"AutoloadClasses": {
+		"PropertyPermissions\\Hooks": "src/Hooks.php"
+	},
 
-    "ExtensionFunctions": [
-        "FieldPermissions\\Hooks::onExtensionFunction"
-    ],
+	"ExtensionFunctions": [
+		"PropertyPermissions\\Hooks::onExtensionFunction"
+	],
 
-    "Hooks": {
+	"Hooks": {
 
-        "SMW::Settings::BeforeInitializationComplete": 
-            "FieldPermissions\\Hooks::onSMWSettingsBeforeInitializationComplete",
+		"SMW::Settings::BeforeInitializationComplete":
+            "PropertyPermissions\\Hooks::onSMWSettingsBeforeInitializationComplete",
 
-        "SMW::Factbox::BeforeContentGeneration": 
-            "FieldPermissions\\Hooks::onSMWFactboxBeforeContentGeneration",
+		"SMW::Factbox::BeforeContentGeneration":
+            "PropertyPermissions\\Hooks::onSMWFactboxBeforeContentGeneration",
 
-        "BeforePageDisplay": 
-            "FieldPermissions\\Hooks::onBeforePageDisplay",
+		"BeforePageDisplay":
+            "PropertyPermissions\\Hooks::onBeforePageDisplay",
 
-        "PageRenderingHash":
-            "FieldPermissions\\Hooks::onPageRenderingHash",
+		"PageRenderingHash":
+            "PropertyPermissions\\Hooks::onPageRenderingHash",
 
-        "LoadExtensionSchemaUpdates":
-            "FieldPermissions\\Hooks::onLoadExtensionSchemaUpdates",
+		"LoadExtensionSchemaUpdates":
+            "PropertyPermissions\\Hooks::onLoadExtensionSchemaUpdates",
 
-        "GetUserPermissionsErrors": 
-            "FieldPermissions\\Hooks::onGetUserPermissionsErrors",
+		"GetUserPermissionsErrors":
+            "PropertyPermissions\\Hooks::onGetUserPermissionsErrors",
 
-        "MultiContentSave": 
-            "FieldPermissions\\Hooks::onMultiContentSave"
-    },
+		"MultiContentSave":
+            "PropertyPermissions\\Hooks::onMultiContentSave"
+	},
 
-    "ServiceWiringFiles": {
-        "FieldPermissions": "src/ServiceWiring.php"
-    },
+	"ServiceWiringFiles": {
+		"PropertyPermissions": "src/ServiceWiring.php"
+	},
 
-    "SpecialPages": {
-        "ManageVisibility": "FieldPermissions\\Special\\SpecialManageVisibility"
-    },
+	"SpecialPages": {
+		"ManageVisibility": "PropertyPermissions\\Special\\SpecialManageVisibility"
+	},
 
-    "AvailableRights": [
-        "fp-manage-visibility"
-    ],
+	"AvailableRights": [
+		"fp-manage-visibility"
+	],
 
-    "GroupPermissions": {
-        "sysop": {
-            "fp-manage-visibility": true
-        }
-    },
+	"GroupPermissions": {
+		"sysop": {
+			"fp-manage-visibility": true
+		}
+	},
 
-    "config": { }
+	"config": { }
 }

@@ -1,23 +1,28 @@
 <?php
 
 /**
- * Maintenance script to seed FieldPermissions DB tables with test data.
+ * Maintenance script to seed PropertyPermissions DB tables with test data.
  */
 
 use MediaWiki\MediaWikiServices;
 
-require_once __DIR__ . '/../../../maintenance/Maintenance.php';
+$IP = getenv( 'MW_INSTALL_PATH' );
+if ( $IP === false ) {
+	$IP = __DIR__ . '/../../../';
+}
+require_once "$IP/maintenance/Maintenance.php";
 
-class SeedFieldPermissions extends Maintenance {
+// phpcs:disable MediaWiki.Files.ClassMatchesFilename.NotMatch
+class SeedPropertyPermissions extends Maintenance {
 	public function __construct() {
 		parent::__construct();
-		$this->addDescription( 'Seeds FieldPermissions tables with test data' );
+		$this->addDescription( 'Seeds PropertyPermissions tables with test data' );
 	}
 
 	public function execute() {
 		$services = MediaWikiServices::getInstance();
-		$levelStore = $services->get( 'FieldPermissions.VisibilityLevelStore' );
-		$groupStore = $services->get( 'FieldPermissions.GroupLevelStore' );
+		$levelStore = $services->get( 'PropertyPermissions.VisibilityLevelStore' );
+		$groupStore = $services->get( 'PropertyPermissions.GroupLevelStore' );
 
 		// Clean existing
 		// Assuming simple delete if needed, but let's just add if not exists
@@ -49,10 +54,14 @@ class SeedFieldPermissions extends Maintenance {
 
 		$this->output( "Seeding group levels...\n" );
 		$groups = [
-			'user' => 0, // Public
-			'lab_member' => 10, // Internal
-			'pi' => 30, // PI Only
-			'sysop' => 30 // Admins see everything
+			// Public
+			'user' => 0,
+			// Internal
+			'lab_member' => 10,
+			// PI Only
+			'pi' => 30,
+			// Admins see everything
+			'sysop' => 30
 		];
 
 		foreach ( $groups as $group => $level ) {
@@ -68,6 +77,5 @@ class SeedFieldPermissions extends Maintenance {
 	}
 }
 
-$maintClass = SeedFieldPermissions::class;
+$maintClass = SeedPropertyPermissions::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-

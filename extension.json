@@ -59,7 +59,10 @@
             "PropertyPermissions\\Hooks::onGetUserPermissionsErrors",
 
 		"MultiContentSave":
-            "PropertyPermissions\\Hooks::onMultiContentSave"
+            "PropertyPermissions\\Hooks::onMultiContentSave",
+
+		"ParserBeforeInternalParse":
+			"PropertyPermissions\\Hooks::onParserBeforeInternalParse"
 	},
 
 	"ServiceWiringFiles": {

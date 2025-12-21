@@ -373,7 +373,7 @@ class Hooks {
 
 					if ( !$evaluator->mayViewProperty( $user, $level, $visibleTo ) ) {
 						// ACCESS DENIED: Remove entirely
-						return '';
+						return 'REDACTED';
 					}
 				} catch ( \Throwable $e ) {
 					// On error (e.g. invalid property name creation), fallback to showing text
